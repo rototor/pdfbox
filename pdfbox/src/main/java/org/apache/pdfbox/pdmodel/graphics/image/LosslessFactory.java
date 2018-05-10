@@ -20,6 +20,7 @@ import java.awt.color.ColorSpace;
 import java.awt.color.ICC_ColorSpace;
 import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -65,6 +66,14 @@ public final class LosslessFactory
         }
         else
         {
+            // We try to encode the image with predictor 
+			PDImageXObject pdImageXObject = compressImageWithPredictor(document, image);
+			if (pdImageXObject != null)
+            {
+                return pdImageXObject;
+            }
+
+			// Fallback: We export the image as 8-bit sRGB and might loose color information
             return createFromRGBImage(image, document);
         }      
     }
@@ -185,7 +194,7 @@ public final class LosslessFactory
             PDColorSpace initColorSpace) throws IOException
     {
         //pre-size the output stream to half of the input
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(byteArray.length/2);
+		ByteArrayOutputStream baos = new ByteArrayOutputStream(byteArray.length / 2);
 
         Filter filter = FilterFactory.INSTANCE.getFilter(COSName.FLATE_DECODE);
         filter.encode(new ByteArrayInputStream(byteArray), baos, new COSDictionary(), 0);
@@ -200,26 +209,84 @@ public final class LosslessFactory
      * @return the image or null if it is not possible to encoded the image (e.g. not supported
      * raster format etc.)
      */
-    private static PDImageXObject compressImageWithPredictor(PDDocument document, BufferedImage image)
-    {
-        return null;
-    }
-
-    private static PDImageXObject compressAs16BitRGBPredictorEncoded(PDDocument document, BufferedImage image) 
-            throws IOException 
-    {
-        final int BYTES_PER_PIXEL = 6;
-        final int COMPONENTS_PER_PIXEL = 3;
+	private static PDImageXObject compressImageWithPredictor(PDDocument document, 
+            BufferedImage image) throws IOException {
+        // The raw count of components per pixel including optional alpha
+        final int componentsPerPixel = image.getColorModel().getNumComponents();
+        final int transferType = image.getRaster().getTransferType();
+		final int bytesPerComponent = (transferType == DataBuffer.TYPE_SHORT
+				|| transferType == DataBuffer.TYPE_USHORT) ? 2 : 1;
+        // Only the bytes we need in the output (excluding alpha)
+		final int bytesPerPixel = image.getColorModel().getNumColorComponents() * bytesPerComponent;
 
         final int height = image.getHeight();
         final int width = image.getWidth();
+
+        Raster imageRaster = image.getRaster();
+        final int elementsInRowPerPixel;
+        
+        // This variable store a row of the image each, the exact type depends 
+        // on the image encoding. Can be a int[], short[] or byte[]
+        Object prevRow, transferRow;
+
+        final int imageType = image.getType();
+		final boolean hasAlpha = image.getColorModel().getNumComponents() != image.getColorModel()
+				.getNumColorComponents();
+		final byte[] alphaImageData = hasAlpha ? new byte[width * height] : null;
+		
+        switch (imageType) {
+        case BufferedImage.TYPE_CUSTOM: {
+            switch (imageRaster.getTransferType()) 
+            {
+            case DataBuffer.TYPE_USHORT:
+                elementsInRowPerPixel = componentsPerPixel;
+				prevRow = new short[width * elementsInRowPerPixel];
+				transferRow = new short[width * elementsInRowPerPixel];
+                break;
+            case DataBuffer.TYPE_BYTE:
+                elementsInRowPerPixel = componentsPerPixel;
+                prevRow = new byte[width * elementsInRowPerPixel];
+                transferRow = new byte[width * elementsInRowPerPixel];
+                break;
+            default:
+                return null;
+            }
+            break;
+        }
+        
+        case BufferedImage.TYPE_3BYTE_BGR:
+        case BufferedImage.TYPE_4BYTE_ABGR:
+        {
+            elementsInRowPerPixel = componentsPerPixel;
+            prevRow = new byte[width * elementsInRowPerPixel];
+            transferRow = new byte[width * elementsInRowPerPixel];
+            break;
+        }
+            
+        case BufferedImage.TYPE_INT_BGR:
+        case BufferedImage.TYPE_INT_ARGB:
+        case BufferedImage.TYPE_INT_RGB:
+        {
+            elementsInRowPerPixel = 1;
+            prevRow = new int[width * elementsInRowPerPixel];
+            transferRow = new int[width * elementsInRowPerPixel];
+            break;
+        }
+            
+        default:
+            // We can not handle this unknown format
+            return null;
+        }
+        
+        final int elementsInTransferRow = width * elementsInRowPerPixel;
+        
         // The rows have 1-byte encoding marker and width*BYTES_PER_PIXEL pixel-bytes
-        final int dataRowByteCount = width * BYTES_PER_PIXEL + 1;
-        byte[] dataRawRowNone = new byte[dataRowByteCount];
-        byte[] dataRawRowSub = new byte[dataRowByteCount];
-        byte[] dataRawRowUp = new byte[dataRowByteCount];
-        byte[] dataRawRowAverage = new byte[dataRowByteCount];
-        byte[] dataRawRowPaeth = new byte[dataRowByteCount];
+        final int dataRowByteCount = width * bytesPerPixel + 1;
+        final byte[] dataRawRowNone = new byte[dataRowByteCount];
+        final byte[] dataRawRowSub = new byte[dataRowByteCount];
+        final byte[] dataRawRowUp = new byte[dataRowByteCount];
+        final byte[] dataRawRowAverage = new byte[dataRowByteCount];
+        final byte[] dataRawRowPaeth = new byte[dataRowByteCount];
 
         // Write the encoding markers
         dataRawRowNone[0] = 0;
@@ -227,64 +294,47 @@ public final class LosslessFactory
         dataRawRowUp[0] = 2;
         dataRawRowAverage[0] = 3;
         dataRawRowPaeth[0] = 4;
-
-        Raster imageRaster = image.getRaster();
-
-        int writerPtr;
-        short[] prevRow = new short[width * COMPONENTS_PER_PIXEL];
-        short[] transferRow = new short[width * COMPONENTS_PER_PIXEL];
+        
+		
         // pre-size the output stream to half of the maximum size
-		ByteArrayOutputStream stream = new ByteArrayOutputStream(height * width * BYTES_PER_PIXEL / 2);
+		ByteArrayOutputStream stream = new ByteArrayOutputStream(height * width * bytesPerPixel / 2);
         Deflater deflater = new Deflater(9);
         DeflaterOutputStream zip = new DeflaterOutputStream(stream, deflater);
 
+        int alphaPtr = 0;
         for (int i = 0; i < height; i++) 
         {
             imageRaster.getDataElements(0, i, width, 1, transferRow);
 
-            writerPtr = 1;
-            byte[] aValues = new byte[BYTES_PER_PIXEL];
-            byte[] cValues = new byte[BYTES_PER_PIXEL];
-            byte[] bValues = new byte[BYTES_PER_PIXEL];
-            byte[] xValues = new byte[BYTES_PER_PIXEL];
-            byte[] tmpValues = new byte[BYTES_PER_PIXEL];
-            for (int j = 0; j < transferRow.length;) 
+            // We start to write at index one, as the predictor marker is in index zero 
+            int writerPtr = 1;
+            byte[] aValues = new byte[bytesPerPixel];
+            byte[] cValues = new byte[bytesPerPixel];
+            byte[] bValues = new byte[bytesPerPixel];
+            byte[] xValues = new byte[bytesPerPixel];
+            byte[] tmpValues = new byte[bytesPerPixel];
+            
+			for (int j = 0; j < elementsInTransferRow; j += elementsInRowPerPixel, alphaPtr++) 
             {
-                short valbR = prevRow[j];
-                short valR = transferRow[j++];
-                short valbG = prevRow[j];
-                short valG = transferRow[j++];
-                short valbB = prevRow[j];
-                short valB = transferRow[j++];
+				copyTransferRowIntoValues(prevRow, transferRow, imageType, alphaImageData, alphaPtr, 
+                        bValues, xValues, j);
 
-                xValues[0] = (byte) ((valR & 0xFF00) >> 8);
-                xValues[1] = (byte) (valR & 0xFF);
-                xValues[2] = (byte) ((valG & 0xFF00) >> 8);
-                xValues[3] = (byte) (valG & 0xFF);
-                xValues[4] = (byte) ((valB & 0xFF00) >> 8);
-                xValues[5] = (byte) (valB & 0xFF);
-
-                bValues[0] = (byte) ((valbR & 0xFF00) >> 8);
-                bValues[1] = (byte) (valbR & 0xFF);
-                bValues[2] = (byte) ((valbG & 0xFF00) >> 8);
-                bValues[3] = (byte) (valbG & 0xFF);
-                bValues[4] = (byte) ((valbB & 0xFF00) >> 8);
-                bValues[5] = (byte) (valbB & 0xFF);
-
-                writeEncodedRowsIntoRowBuffer(dataRawRowNone, dataRawRowSub, dataRawRowUp, dataRawRowAverage, 
-                        dataRawRowPaeth, writerPtr, aValues, cValues, bValues, xValues, tmpValues, BYTES_PER_PIXEL);
+                writeEncodedValuesIntoRowBuffer(dataRawRowNone, dataRawRowSub, dataRawRowUp, 
+                        dataRawRowAverage, dataRawRowPaeth, writerPtr, aValues, cValues, bValues, 
+                        xValues, tmpValues, bytesPerPixel);
 
                 /*
                  * We shift the values into the prev / upper left values for the next
                  * pixel
                  */
-                System.arraycopy(xValues, 0, aValues, 0, BYTES_PER_PIXEL);
-                System.arraycopy(bValues, 0, cValues, 0, BYTES_PER_PIXEL);
+                System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
+                System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
 
-                writerPtr += BYTES_PER_PIXEL;
+                writerPtr += bytesPerPixel;
             }
 
-            byte[] rowToWrite = chooseDataRowToWrite(dataRawRowNone, dataRawRowSub, dataRawRowUp, dataRawRowAverage, dataRawRowPaeth);
+            byte[] rowToWrite = chooseDataRowToWrite(dataRawRowNone, dataRawRowSub, dataRawRowUp, 
+                    dataRawRowAverage, dataRawRowPaeth);
 
             /*
              * Write and compress the row as long it is hot (CPU cache wise)
@@ -296,7 +346,7 @@ public final class LosslessFactory
                  * We swap prev and transfer row, so that we have the prev row for the next 
                  * row.
                  */
-                short[] temp = prevRow;
+                Object temp = prevRow;
                 prevRow = transferRow;
                 transferRow = temp;
             }
@@ -304,24 +354,101 @@ public final class LosslessFactory
         zip.close();
         deflater.end();
 
-        return preparePredictorPDImage(document, image, stream, 16);
+		return preparePredictorPDImage(document, image, stream, bytesPerComponent * 8, alphaImageData);
     }
-    
+
+    private static void copyTransferRowIntoValues(Object prevRow, Object transferRow, int imageType,
+            byte[] alphaImageData, int alphaPtr, byte[] bValues, byte[] xValues, int indexInTransferRow)
+    {
+		if (transferRow instanceof byte[]) 
+		{
+            copyImageBytes((byte[]) transferRow, indexInTransferRow, xValues, alphaImageData, alphaPtr);
+            copyImageBytes((byte[]) prevRow, indexInTransferRow, bValues, null, 0);
+		}
+		else if (transferRow instanceof int[]) 
+		{
+			copyIntToBytes((int[]) transferRow, indexInTransferRow, xValues, imageType, alphaImageData, alphaPtr);
+			copyIntToBytes((int[]) prevRow, indexInTransferRow, bValues, imageType, null, 0);
+		} 
+		else if (transferRow instanceof short[]) 
+		{
+			copyShortsToBytes((short[]) transferRow, indexInTransferRow, xValues);
+			copyShortsToBytes((short[]) prevRow, indexInTransferRow, bValues);
+		}
+    }
+
+    private static void copyIntToBytes(int[] transferRow, int indexInTranferRow, byte[] targetValues, 
+            int imageType, byte[] alphaImageData, int alphaPtr)
+    {
+        int val = transferRow[indexInTranferRow];
+		byte b0 = (byte) ((val & 0xFF));
+		byte b1 = (byte) ((val & 0xFF00) >> 8);
+		byte b2 = (byte) ((val & 0xFF0000) >> 16);
+		byte b3 = (byte) ((val & 0xFF000000) >> 24);
+
+        switch(imageType){
+        case BufferedImage.TYPE_INT_BGR: {
+            targetValues[0] = b2;
+            targetValues[1] = b1;
+            targetValues[2] = b0;
+            break;
+        }
+        case BufferedImage.TYPE_INT_ARGB:
+        {
+            targetValues[0] = b2;
+            targetValues[1] = b1;
+            targetValues[2] = b0;
+            if (alphaImageData != null)
+            {
+                alphaImageData[alphaPtr] = b3;
+            }
+            break;
+        }
+        case BufferedImage.TYPE_INT_RGB:
+            targetValues[0] = b0;
+            targetValues[1] = b1;
+            targetValues[2] = b2;
+            break;
+        }
+    }
+
+    private static void copyImageBytes(byte[] transferRow, int indexInTranferRow, byte[] targetValues,
+            byte[] alphaImageData, int alphaPtr)
+    {
+        System.arraycopy(transferRow, indexInTranferRow, targetValues, 0, targetValues.length);
+        if (alphaImageData != null)
+        {
+			alphaImageData[alphaPtr] = transferRow[indexInTranferRow + targetValues.length];
+        }
+    }
+
+    private static void copyShortsToBytes(short[] transferRow, int indexInTranferRow, 
+            byte[] targetValues) 
+    {
+		for (int i = 0; i < targetValues.length;) 
+        {
+			short val = transferRow[indexInTranferRow++];
+			targetValues[i++] = (byte) ((val & 0xFF00) >> 8);
+			targetValues[i++] = (byte) (val & 0xFF);
+        }
+    }
+
     private static PDImageXObject preparePredictorPDImage(PDDocument document, BufferedImage image,
-            ByteArrayOutputStream stream, int bitsPerComponent) throws IOException
+            ByteArrayOutputStream stream, int bitsPerComponent, byte[] alphaImageData) throws IOException
     {
         int height = image.getHeight();
         int width = image.getWidth();
 
 		ColorSpace srcCspace = image.getColorModel().getColorSpace();
-        PDColorSpace pdColorSpace = srcCspace.getType() == ColorSpace.TYPE_CMYK ? PDDeviceRGB.INSTANCE : PDDeviceCMYK.INSTANCE;
+		PDColorSpace pdColorSpace = srcCspace.getType() != ColorSpace.TYPE_CMYK ? PDDeviceRGB.INSTANCE
+				: PDDeviceCMYK.INSTANCE;
 
         // Encode the image profile if the image has one
 		if (srcCspace instanceof ICC_ColorSpace)
 		{
             ICC_ColorSpace icc_colorSpace = (ICC_ColorSpace) srcCspace;
             ICC_Profile profile = icc_colorSpace.getProfile();
-            // We only encode a colorspace if it is not sRGB
+            // We only encode a color profile if it is not sRGB
 			if (profile != ICC_Profile.getInstance(ColorSpace.CS_sRGB))
 			{
 				PDICCBased pdProfile = new PDICCBased(document);
@@ -341,13 +468,21 @@ public final class LosslessFactory
 		decodeParms.setItem(COSName.COLUMNS, COSInteger.get(width));
 		decodeParms.setItem(COSName.COLORS, COSInteger.get(srcCspace.getNumComponents()));
 		imageXObject.getCOSObject().setItem(COSName.DECODE_PARMS, decodeParms);
+
+
+        if (image.getTransparency() != Transparency.OPAQUE)
+        {
+            PDImageXObject pdMask = prepareImageXObject(document, alphaImageData,
+                    image.getWidth(), image.getHeight(), 8, PDDeviceGray.INSTANCE);
+            imageXObject.getCOSObject().setItem(COSName.SMASK, pdMask);
+        }
 		return imageXObject;
     }
 
     /**
      * Write the current pixel using different row encoding
      */
-    private static void writeEncodedRowsIntoRowBuffer(byte[] dataRawRowNone, byte[] dataRawRowSub, byte[] dataRawRowUp, 
+    private static void writeEncodedValuesIntoRowBuffer(byte[] dataRawRowNone, byte[] dataRawRowSub, byte[] dataRawRowUp, 
             byte[] dataRawRowAverage, byte[] dataRawRowPaeth, 
             int writerPtr, byte[] aValues, byte[] cValues, byte[] bValues, byte[] xValues, byte[] tmpValues, 
             int bytesPerPixel)
@@ -448,43 +583,49 @@ public final class LosslessFactory
 
     private static void pngFilterPaeth(byte[] x, byte[] a, byte[] b, byte[] c, byte[] result, int length) 
     {
-    	assert x.length >= length;
-        assert a.length >= length;
-        assert b.length >= length;
-        assert c.length >= length;
-        for (int i = 0; i < length; i++) 
-        {
-            int xV = (x[i] & 0xff);
-            int aV = (a[i] & 0xff);
-            int bV = (b[i] & 0xff);
-            int cV = (c[i] & 0xff);
+		assert x.length >= length;
+		assert a.length >= length;
+		assert b.length >= length;
+		assert c.length >= length;
+		for (int i = 0; i < length; i++) 
+		{
+			int xV = (x[i] & 0xff);
+			int aV = (a[i] & 0xff);
+			int bV = (b[i] & 0xff);
+			int cV = (c[i] & 0xff);
 
-            int p = aV + bV - cV;
-            int pa = Math.abs(p - aV);
-            int pb = Math.abs(p - bV);
-            int pc = Math.abs(p - cV);
-            final int Pr;
-            if (pa <= pb && pa <= pc)
-                Pr = aV;
-            else if (pb <= pc)
-                Pr = bV;
-            else
-                Pr = cV;
+			int p = aV + bV - cV;
+			int pa = Math.abs(p - aV);
+			int pb = Math.abs(p - bV);
+			int pc = Math.abs(p - cV);
+			final int Pr;
+			if (pa <= pb && pa <= pc)
+				Pr = aV;
+			else if (pb <= pc)
+				Pr = bV;
+			else
+				Pr = cV;
 
-            int r = xV - Pr;
-            result[i] = (byte) (r);
-        }
+			int r = xV - Pr;
+			result[i] = (byte) (r);
+		}
     }
 
     private static long estCompressSum(byte[] dataRawRowSub) 
     {
         long sum = 0;
-        for (byte aDataRawRowSub : dataRawRowSub)
-            if (aDataRawRowSub > 0)
-                sum += aDataRawRowSub;
-            else
-                sum -= aDataRawRowSub;
-        return sum;
+		for (byte aDataRawRowSub : dataRawRowSub) 
+		{
+			if (aDataRawRowSub > 0) 
+			{
+				sum += aDataRawRowSub;
+			} 
+			else
+            {
+				sum -= aDataRawRowSub;
+			}
+		}
+		return sum;
     }
 
 }
