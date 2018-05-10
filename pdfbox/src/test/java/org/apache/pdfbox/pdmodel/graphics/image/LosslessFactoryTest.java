@@ -399,8 +399,8 @@ public class LosslessFactoryTest extends TestCase
 		ColorConvertOp op = new ColorConvertOp(image.getColorModel().getColorSpace(), targetCS, null);
 		BufferedImage imageCMYK = op.filter(image, null);
 
-        PDImageXObject ximage1 = LosslessFactory.createFromImage(document, imageCMYK);
-        validate(ximage1, 8, imageCMYK.getWidth(), imageCMYK.getHeight(), "png", PDDeviceCMYK.INSTANCE.getName());
+        PDImageXObject ximage = LosslessFactory.createFromImage(document, imageCMYK);
+        validate(ximage, 8, imageCMYK.getWidth(), imageCMYK.getHeight(), "png", PDDeviceCMYK.INSTANCE.getName());
 
         // We can not compare the CMYK image with the display only RGB image ... the values won't match...
     }
@@ -420,9 +420,36 @@ public class LosslessFactoryTest extends TestCase
         ColorConvertOp op = new ColorConvertOp(image.getColorModel().getColorSpace(), targetCS, null);
          op.filter(image, img16Bit);
 
-        PDImageXObject ximage1 = LosslessFactory.createFromImage(document, img16Bit);
-        validate(ximage1, 16, img16Bit.getWidth(), img16Bit.getHeight(), "png", PDDeviceRGB.INSTANCE.getName());
-        checkIdent(image, ximage1.getImage());
+        PDImageXObject ximage = LosslessFactory.createFromImage(document, img16Bit);
+        validate(ximage, 16, img16Bit.getWidth(), img16Bit.getHeight(), "png", PDDeviceRGB.INSTANCE.getName());
+        checkIdent(image, ximage.getImage());
     }
 
+    public void testCreateLosslessFromImageINT_BGR() throws IOException
+    {
+        PDDocument document = new PDDocument();
+        BufferedImage image = ImageIO.read(this.getClass().getResourceAsStream("png.png"));
+
+		BufferedImage imgBgr = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_BGR);
+		Graphics2D graphics = imgBgr.createGraphics();
+		graphics.drawImage(image, 0, 0, null);
+
+        PDImageXObject ximage = LosslessFactory.createFromImage(document, imgBgr);
+        validate(ximage, 8, imgBgr.getWidth(), imgBgr.getHeight(), "png", PDDeviceRGB.INSTANCE.getName());
+        checkIdent(image, ximage.getImage());
+    }
+
+    public void testCreateLosslessFromImageINT_RGB() throws IOException
+    {
+        PDDocument document = new PDDocument();
+        BufferedImage image = ImageIO.read(this.getClass().getResourceAsStream("png.png"));
+
+        BufferedImage imgRgb = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = imgRgb.createGraphics();
+        graphics.drawImage(image, 0, 0, null);
+
+        PDImageXObject ximage = LosslessFactory.createFromImage(document, imgRgb);
+        validate(ximage, 8, imgRgb.getWidth(), imgRgb.getHeight(), "png", PDDeviceRGB.INSTANCE.getName());
+        checkIdent(image, ximage.getImage());
+    }
 }

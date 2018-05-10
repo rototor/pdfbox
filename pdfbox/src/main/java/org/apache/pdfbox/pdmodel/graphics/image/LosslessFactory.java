@@ -388,9 +388,9 @@ public final class LosslessFactory
 
         switch(imageType){
         case BufferedImage.TYPE_INT_BGR: {
-            targetValues[0] = b2;
+            targetValues[0] = b0;
             targetValues[1] = b1;
-            targetValues[2] = b0;
+            targetValues[2] = b2;
             break;
         }
         case BufferedImage.TYPE_INT_ARGB:
@@ -405,9 +405,9 @@ public final class LosslessFactory
             break;
         }
         case BufferedImage.TYPE_INT_RGB:
-            targetValues[0] = b0;
+            targetValues[0] = b2;
             targetValues[1] = b1;
-            targetValues[2] = b2;
+            targetValues[2] = b0;
             break;
         }
     }
