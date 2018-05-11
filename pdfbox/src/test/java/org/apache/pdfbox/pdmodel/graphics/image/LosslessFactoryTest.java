@@ -395,7 +395,7 @@ public class LosslessFactoryTest extends TestCase
         BufferedImage image = ImageIO.read(this.getClass().getResourceAsStream("png.png"));
 
 		final ColorSpace targetCS = new ICC_ColorSpace(ICC_Profile
-				.getInstance(this.getClass().getResourceAsStream("/org/apache/pdfbox/pdmodel/EuroscaleCoated.icc")));
+				.getInstance(this.getClass().getResourceAsStream("/org/apache/pdfbox/resources/icc/ISOcoated_v2_300_bas.icc")));
 		ColorConvertOp op = new ColorConvertOp(image.getColorModel().getColorSpace(), targetCS, null);
 		BufferedImage imageCMYK = op.filter(image, null);
 
