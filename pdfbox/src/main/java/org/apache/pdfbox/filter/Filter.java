@@ -165,4 +165,22 @@ public abstract class Filter
         return reader;
     }
 
+    /**
+     * @return the ZIP compression level configured for PDFBox
+     */
+    public static int getCompressionLevel()
+    {
+        int compressionLevel = Deflater.DEFAULT_COMPRESSION;
+        try
+        {
+            compressionLevel = Integer.parseInt(System.getProperty(Filter.SYSPROP_DEFLATELEVEL, "-1"));
+        }
+        catch (NumberFormatException ex)
+        {
+            LOG.warn(ex.getMessage(), ex);
+        }
+        compressionLevel = Math.max(-1, Math.min(Deflater.BEST_COMPRESSION, compressionLevel));
+        return compressionLevel;
+    }
+
 }

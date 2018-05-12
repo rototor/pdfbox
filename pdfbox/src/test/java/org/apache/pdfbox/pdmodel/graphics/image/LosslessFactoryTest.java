@@ -403,6 +403,7 @@ public class LosslessFactoryTest extends TestCase
         validate(ximage, 8, imageCMYK.getWidth(), imageCMYK.getHeight(), "png", PDDeviceCMYK.INSTANCE.getName());
 
         // We can not compare the CMYK image with the display only RGB image ... the values won't match...
+        // checkIdent(imageCMYK, ximage.getImage());
     }
 
     public void testCreateLosslessFrom16Bit() throws IOException

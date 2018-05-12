@@ -298,7 +298,7 @@ public final class LosslessFactory
 		
         // pre-size the output stream to half of the maximum size
 		ByteArrayOutputStream stream = new ByteArrayOutputStream(height * width * bytesPerPixel / 2);
-        Deflater deflater = new Deflater(9);
+        Deflater deflater = new Deflater(Filter.getCompressionLevel());
         DeflaterOutputStream zip = new DeflaterOutputStream(stream, deflater);
 
         int alphaPtr = 0;
