@@ -48,6 +48,12 @@ public final class LosslessFactory
     {
     }
     
+    
+    /** 
+     * Internal, only for benchmark purpuse
+     */
+    static boolean usePredictorEncoder = true;
+
     /**
      * Creates a new lossless encoded Image XObject from a Buffered Image.
      *
@@ -67,10 +73,13 @@ public final class LosslessFactory
         else
         {
             // We try to encode the image with predictor 
-			PDImageXObject pdImageXObject = compressImageWithPredictor(document, image);
-			if (pdImageXObject != null)
+			if (usePredictorEncoder)
             {
-                return pdImageXObject;
+                PDImageXObject pdImageXObject = compressImageWithPredictor(document, image);
+                if (pdImageXObject != null)
+                {
+                    return pdImageXObject;
+                }
             }
 
 			// Fallback: We export the image as 8-bit sRGB and might loose color information

@@ -77,6 +77,19 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>1.21</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>1.21</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- For legal reasons (incompatible license), these two dependencies below
         are to be used only in the tests and may not be distributed. 
         See also LEGAL-195 -->
