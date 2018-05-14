@@ -45,6 +45,7 @@ public class LosslessFactoryBenchmark
         doc = new PDDocument();
     }
 
+    @SuppressWarnings("WeakerAccess")
     @Param({ "3", "6", "9" })
     public String zipLevel;
 
@@ -96,8 +97,34 @@ public class LosslessFactoryBenchmark
         return LosslessFactory.createFromImage(doc, imgBigBytes);
     }
 
-    public static void main(String[] args) throws RunnerException
+    private static boolean DO_PROFILE_LOOP = false;
+
+    public static void main(String[] args) throws RunnerException, IOException
     {
+        if (DO_PROFILE_LOOP)
+        {
+            LosslessFactoryBenchmark benchmark = new LosslessFactoryBenchmark();
+            benchmark.setupBenchmark();
+            benchmark.zipLevel = "3";
+            PDImageXObject last = null;
+
+            benchmark.zipLevel = "9";
+            PDImageXObject tst = benchmark.predictorBig();
+            PDImageXObject tst2 = benchmark.rgbOnlyBig();
+
+
+           System.out.println(" " + tst.getStream().getLength() + " vs. " + tst2.getStream().getLength());
+
+            for (int i = 0; i < 1000000; i++)
+            {
+                PDImageXObject now = benchmark.predictorBig();
+                // Those lines are to keep the VM from optimizing the whole call out...
+                if (last == now)
+                    throw new IllegalStateException();
+                last = now;
+            }
+        }
+
         Options opt = new OptionsBuilder()
                 .include(".*" + LosslessFactoryBenchmark.class.getSimpleName() + ".*").forks(1)
                 .build();
