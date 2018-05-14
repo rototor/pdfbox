@@ -364,20 +364,74 @@ public final class LosslessFactory
 				Arrays.fill(aValues, (byte) 0);
 				Arrays.fill(cValues, (byte) 0);
 
-                for (int j = 0; j < elementsInTransferRow; j += elementsInRowPerPixel, alphaPtr++) 
+				/*
+				 * We do the inner loop on the row depending on the data type, to avoid
+				 * casting etc. in the inner loop
+				 */
+                if (transferRow instanceof byte[])
                 {
-                    copyTransferRowIntoValues(prevRow, transferRow, alphaPtr, j);
+                    byte[] transferRowInt = (byte[]) transferRow;
+                    byte[] prevRowInt = (byte[]) prevRow;
+                    for (int indexInTransferRow = 0; indexInTransferRow
+                            < elementsInTransferRow; indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
+                    {
+                        copyImageBytes(transferRowInt, indexInTransferRow, xValues, alphaImageData, alphaPtr);
+                        copyImageBytes(prevRowInt, indexInTransferRow, bValues, null, 0);
 
-                    writeEncodedValuesIntoRowBuffer(writerPtr);
+                        writeEncodedValuesIntoRowBuffer(writerPtr);
 
-                    /*
-                     * We shift the values into the prev / upper left values for the next
-                     * pixel
-                     */
-                    System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
-                    System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
+                        /*
+                         * We shift the values into the prev / upper left values for the next
+                         * pixel
+                         */
+                        System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
+                        System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
+                        writerPtr += bytesPerPixel;
+                    }
+                }
+                else if (transferRow instanceof int[])
+                {
+                    int[] transferRowInt = (int[]) transferRow;
+                    int[] prevRowInt = (int[]) prevRow;
+                    for (int indexInTransferRow = 0; indexInTransferRow
+                            < elementsInTransferRow; indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
+                    {
+                        copyIntToBytes(transferRowInt, indexInTransferRow, xValues, alphaImageData, alphaPtr);
+                        copyIntToBytes(prevRowInt, indexInTransferRow, bValues, null, 0);
 
-                    writerPtr += bytesPerPixel;
+                        writeEncodedValuesIntoRowBuffer(writerPtr);
+
+                        /*
+                         * We shift the values into the prev / upper left values for the next
+                         * pixel
+                         */
+                        System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
+                        System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
+                        writerPtr += bytesPerPixel;
+                    }
+                }
+                else
+                {
+                    //noinspection ConstantConditions
+                    assert (transferRow instanceof short[]);
+                    short[] transferRowShort = (short[]) transferRow;
+                    short[] prevRowShort = (short[]) prevRow;
+                    for (int indexInTransferRow = 0; indexInTransferRow
+                            < elementsInTransferRow; indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
+                    {
+                        copyShortsToBytes(transferRowShort, indexInTransferRow, xValues);
+                        copyShortsToBytes(prevRowShort, indexInTransferRow, bValues);
+
+                        writeEncodedValuesIntoRowBuffer(writerPtr);
+
+                        /*
+                         * We shift the values into the prev / upper left values for the next
+                         * pixel
+                         */
+                        System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
+                        System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
+                        writerPtr += bytesPerPixel;
+                    }
                 }
 
                 byte[] rowToWrite = chooseDataRowToWrite();
@@ -401,26 +455,6 @@ public final class LosslessFactory
             deflater.end();
 
 			return preparePredictorPDImage(stream, bytesPerComponent * 8);
-        }
-
-        private void copyTransferRowIntoValues(Object prevRow, Object transferRow, int alphaPtr, 
-                int indexInTransferRow)
-        {
-            if (transferRow instanceof byte[]) 
-            {
-                copyImageBytes((byte[]) transferRow, indexInTransferRow, xValues, alphaImageData, alphaPtr);
-                copyImageBytes((byte[]) prevRow, indexInTransferRow, bValues, null, 0);
-            }
-            else if (transferRow instanceof int[]) 
-            {
-                copyIntToBytes((int[]) transferRow, indexInTransferRow, xValues, alphaImageData, alphaPtr);
-                copyIntToBytes((int[]) prevRow, indexInTransferRow, bValues, null, 0);
-            } 
-            else if (transferRow instanceof short[]) 
-            {
-                copyShortsToBytes((short[]) transferRow, indexInTransferRow, xValues);
-                copyShortsToBytes((short[]) prevRow, indexInTransferRow, bValues);
-            }
         }
 
         private void copyIntToBytes(int[] transferRow, int indexInTranferRow, byte[] targetValues, 
