@@ -1,18 +1,18 @@
 package org.apache.pdfbox.pdmodel.graphics.image;
 
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+
+import javax.imageio.ImageIO;
+
 import org.apache.pdfbox.filter.Filter;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.profile.DTraceAsmProfiler;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import javax.imageio.ImageIO;
-import java.awt.*;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
 
 @State(Scope.Benchmark)
 @Warmup(iterations = 5, time = 1)
