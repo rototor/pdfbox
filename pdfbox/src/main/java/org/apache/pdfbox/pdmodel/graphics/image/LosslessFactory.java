@@ -15,7 +15,16 @@
  */
 package org.apache.pdfbox.pdmodel.graphics.image;
 
-import java.awt.Transparency;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSInteger;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.filter.Filter;
+import org.apache.pdfbox.filter.FilterFactory;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.graphics.color.*;
+
+import javax.imageio.stream.MemoryCacheImageOutputStream;
+import java.awt.*;
 import java.awt.color.ColorSpace;
 import java.awt.color.ICC_ColorSpace;
 import java.awt.color.ICC_Profile;
@@ -29,14 +38,6 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
-import javax.imageio.stream.MemoryCacheImageOutputStream;
-import org.apache.pdfbox.cos.COSDictionary;
-import org.apache.pdfbox.cos.COSInteger;
-import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.filter.Filter;
-import org.apache.pdfbox.filter.FilterFactory;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.graphics.color.*;
 
 /**
  * Factory for creating a PDImageXObject containing a lossless compressed image.
@@ -281,6 +282,12 @@ public final class LosslessFactory
             dataRawRowAverage[0] = 3;
             dataRawRowPaeth[0] = 4;
 
+            
+            // c | b
+            // -----
+            // a | x
+            //
+            // x => current pixel
             this.aValues = new byte[bytesPerPixel];
             this.cValues = new byte[bytesPerPixel];
             this.bValues = new byte[bytesPerPixel];
@@ -364,75 +371,74 @@ public final class LosslessFactory
 				Arrays.fill(aValues, (byte) 0);
 				Arrays.fill(cValues, (byte) 0);
 
-				/*
-				 * We do the inner loop on the row depending on the data type, to avoid
-				 * casting etc. in the inner loop
-				 */
+                final byte[] transferRowByte;
+                final byte[] prevRowByte;
+                final int[] transferRowInt;
+                final int[] prevRowInt;
+                final short[] transferRowShort;
+                final short[] prevRowShort;
+
                 if (transferRow instanceof byte[])
                 {
-                    byte[] transferRowInt = (byte[]) transferRow;
-                    byte[] prevRowInt = (byte[]) prevRow;
-                    for (int indexInTransferRow = 0; indexInTransferRow
-                            < elementsInTransferRow; indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
-                    {
-                        copyImageBytes(transferRowInt, indexInTransferRow, xValues, alphaImageData, alphaPtr);
-                        copyImageBytes(prevRowInt, indexInTransferRow, bValues, null, 0);
-
-                        writeEncodedValuesIntoRowBuffer(writerPtr);
-
-                        /*
-                         * We shift the values into the prev / upper left values for the next
-                         * pixel
-                         */
-                        System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
-                        System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
-                        writerPtr += bytesPerPixel;
-                    }
+                    transferRowByte = (byte[]) transferRow;
+                    prevRowByte = (byte[]) prevRow;
+                    transferRowInt = prevRowInt = null;
+                    transferRowShort = prevRowShort = null;
                 }
                 else if (transferRow instanceof int[])
                 {
-                    int[] transferRowInt = (int[]) transferRow;
-                    int[] prevRowInt = (int[]) prevRow;
-                    for (int indexInTransferRow = 0; indexInTransferRow
-                            < elementsInTransferRow; indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
-                    {
-                        copyIntToBytes(transferRowInt, indexInTransferRow, xValues, alphaImageData, alphaPtr);
-                        copyIntToBytes(prevRowInt, indexInTransferRow, bValues, null, 0);
-
-                        writeEncodedValuesIntoRowBuffer(writerPtr);
-
-                        /*
-                         * We shift the values into the prev / upper left values for the next
-                         * pixel
-                         */
-                        System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
-                        System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
-                        writerPtr += bytesPerPixel;
-                    }
+                    transferRowInt = (int[]) transferRow;
+                    prevRowInt = (int[]) prevRow;
+                    transferRowShort = prevRowShort = null;
+                    transferRowByte = prevRowByte = null;
                 }
                 else
                 {
-                    //noinspection ConstantConditions
-                    assert (transferRow instanceof short[]);
-                    short[] transferRowShort = (short[]) transferRow;
-                    short[] prevRowShort = (short[]) prevRow;
-                    for (int indexInTransferRow = 0; indexInTransferRow
-                            < elementsInTransferRow; indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
+                    // This must be short[]
+                    transferRowShort = (short[]) transferRow;
+                    prevRowShort = (short[]) prevRow;
+                    transferRowInt = prevRowInt = null;
+                    transferRowByte = prevRowByte = null;
+                }
+
+				for (int indexInTransferRow = 0; indexInTransferRow
+						< elementsInTransferRow; indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
+				{
+					// Copy the pixel values into the byte array
+                    if (transferRowByte != null)
                     {
+                        copyImageBytes(transferRowByte, indexInTransferRow, xValues, alphaImageData,
+                                alphaPtr);
+                        copyImageBytes(prevRowByte, indexInTransferRow, bValues, null, 0);
+                    }
+                    else if (transferRowInt != null)
+                    {
+                        copyIntToBytes(transferRowInt, indexInTransferRow, xValues, alphaImageData,
+                                alphaPtr);
+                        copyIntToBytes(prevRowInt, indexInTransferRow, bValues, null, 0);
+                    }
+                    else
+                    {
+                        // This must be short[]
                         copyShortsToBytes(transferRowShort, indexInTransferRow, xValues);
                         copyShortsToBytes(prevRowShort, indexInTransferRow, bValues);
-
-                        writeEncodedValuesIntoRowBuffer(writerPtr);
-
-                        /*
-                         * We shift the values into the prev / upper left values for the next
-                         * pixel
-                         */
-                        System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
-                        System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
-                        writerPtr += bytesPerPixel;
                     }
-                }
+
+                    // Encode the pixel values in the different encodings
+                    writeBytes(dataRawRowNone, writerPtr, xValues, bytesPerPixel);
+                    writeEncodedValueSub(writerPtr);
+                    writeEncodedValueUp(writerPtr);
+                    writeEncodedValueAverage(writerPtr);
+                    writeEncodedValuePaeth(writerPtr);
+
+                    /*
+					 * We shift the values into the prev / upper left values for the next
+					 * pixel
+					 */
+					System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
+					System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
+					writerPtr += bytesPerPixel;
+				}
 
                 byte[] rowToWrite = chooseDataRowToWrite();
 
@@ -462,9 +468,8 @@ public final class LosslessFactory
         {
             int val = transferRow[indexInTranferRow];
             byte b0 = (byte) ((val & 0xFF));
-            byte b1 = (byte) ((val & 0xFF00) >> 8);
-            byte b2 = (byte) ((val & 0xFF0000) >> 16);
-            byte b3 = (byte) ((val & 0xFF000000) >> 24);
+            byte b1 = (byte) ((val >> 8) & 0xFF);
+            byte b2 = (byte) ((val >> 16) & 0xFF);
 
             switch(imageType){
             case BufferedImage.TYPE_INT_BGR: {
@@ -480,6 +485,7 @@ public final class LosslessFactory
                 targetValues[2] = b0;
                 if (alphaImageData != null)
                 {
+                    byte b3 = (byte) ((val >> 24) & 0xFF);
                     alphaImageData[alphaPtr] = b3;
                 }
                 break;
@@ -505,10 +511,10 @@ public final class LosslessFactory
         private static void copyShortsToBytes(short[] transferRow, int indexInTranferRow, 
                 byte[] targetValues) 
         {
-            for (int i = 0; i < targetValues.length;) 
+            for (int i = 0; i < targetValues.length;)
             {
                 short val = transferRow[indexInTranferRow++];
-                targetValues[i++] = (byte) ((val & 0xFF00) >> 8);
+                targetValues[i++] = (byte) ((val >> 8) & 0xFF);
                 targetValues[i++] = (byte) (val & 0xFF);
             }
         }
@@ -559,24 +565,24 @@ public final class LosslessFactory
             return imageXObject;
         }
 
-        /**
-         * Write the current pixel using different row encoding
-         */
-		private void writeEncodedValuesIntoRowBuffer(int writerPtr)
-        {
-            writeBytes(dataRawRowNone, writerPtr, xValues, bytesPerPixel);
-
-            pngFilterSub(xValues, aValues, tmpResultValues, bytesPerPixel);
-            writeBytes(dataRawRowSub, writerPtr, tmpResultValues, bytesPerPixel);
-
-            pngFilterUp(xValues, bValues, tmpResultValues, bytesPerPixel);
-            writeBytes(dataRawRowUp, writerPtr, tmpResultValues, bytesPerPixel);
-
-            pngFilterAverage(xValues, bValues, tmpResultValues, bytesPerPixel);
-            writeBytes(dataRawRowAverage, writerPtr, tmpResultValues, bytesPerPixel);
-
+        private void writeEncodedValuePaeth(int writerPtr) {
             pngFilterPaeth(xValues, aValues, bValues, cValues, tmpResultValues, bytesPerPixel);
             writeBytes(dataRawRowPaeth, writerPtr, tmpResultValues, bytesPerPixel);
+        }
+
+        private void writeEncodedValueAverage(int writerPtr) {
+            pngFilterAverage(xValues, bValues, aValues,  tmpResultValues, bytesPerPixel);
+            writeBytes(dataRawRowAverage, writerPtr, tmpResultValues, bytesPerPixel);
+        }
+
+        private void writeEncodedValueUp(int writerPtr) {
+            pngFilterUp(xValues, bValues, tmpResultValues, bytesPerPixel);
+            writeBytes(dataRawRowUp, writerPtr, tmpResultValues, bytesPerPixel);
+        }
+
+        private void writeEncodedValueSub(int writerPtr) {
+            pngFilterSub(xValues, aValues, tmpResultValues, bytesPerPixel);
+            writeBytes(dataRawRowSub, writerPtr, tmpResultValues, bytesPerPixel);
         }
 
         /**
@@ -602,24 +608,24 @@ public final class LosslessFactory
                 rowToWrite = dataRawRowSub;
                 estCompressSum = estCompressSumSub;
             }
-            if (estCompressSum > estCompressSumUp) 
+            if (estCompressSum > estCompressSumUp)
             {
                 rowToWrite = dataRawRowUp;
                 estCompressSum = estCompressSumUp;
             }
-            if (estCompressSum > estCompressSumAvg) 
+            if (estCompressSum > estCompressSumAvg)
             {
                 rowToWrite = dataRawRowAverage;
                 estCompressSum = estCompressSumAvg;
             }
-            if (estCompressSum > estCompressSumPaeth) 
+            if (estCompressSum > estCompressSumPaeth)
             {
                 rowToWrite = dataRawRowPaeth;
             }
             return rowToWrite;
         }
 
-        private static void writeBytes(byte[] b, int offset, byte[] source, int length) 
+        private static void writeBytes(byte[] b, int offset, byte[] source, int length)
         {
             System.arraycopy(source, 0, b, offset, length);
         }
@@ -633,7 +639,7 @@ public final class LosslessFactory
             assert a.length >= length;
             for (int i = 0; i < length; i++) 
             {
-                int r = (x[i] & 0xff) - (a[i] & 0xff);
+                int r = (x[i] & 0xFF) - (a[i] & 0xFF);
                 result[i] = (byte) (r);
             }
         }
@@ -644,15 +650,16 @@ public final class LosslessFactory
             pngFilterSub(x, b, res, length);
         }
 
-        private static void pngFilterAverage(byte[] x, byte[] b, byte[] result, int length) 
+        private static void pngFilterAverage(byte[] x, byte[] b, byte[] a, byte[] result, int length)
         {
             assert x.length >= length;
             assert b.length >= length;
             for (int i = 0; i < length; i++) 
             {
-                int xV = (x[i] & 0xff);
-                int bV = (b[i] & 0xff);
-                int r = xV - ((xV - bV) / 2);
+                int xV = (x[i] & 0xFF);
+                int bV = (b[i] & 0xFF);
+                int aV = (a[i] & 0xFF);
+                int r = xV - ((aV - bV) / 2);
                 result[i] = (byte) (r);
             }
         }
@@ -665,10 +672,10 @@ public final class LosslessFactory
             assert c.length >= length;
             for (int i = 0; i < length; i++) 
             {
-                int xV = (x[i] & 0xff);
-                int aV = (a[i] & 0xff);
-                int bV = (b[i] & 0xff);
-                int cV = (c[i] & 0xff);
+                int xV = (x[i] & 0xFF);
+                int aV = (a[i] & 0xFF);
+                int bV = (b[i] & 0xFF);
+                int cV = (c[i] & 0xFF);
 
                 int p = aV + bV - cV;
                 int pa = Math.abs(p - aV);
@@ -692,14 +699,7 @@ public final class LosslessFactory
             long sum = 0;
             for (byte aDataRawRowSub : dataRawRowSub) 
             {
-                if (aDataRawRowSub > 0) 
-                {
-                    sum += aDataRawRowSub;
-                } 
-                else
-                {
-                    sum -= aDataRawRowSub;
-                }
+                sum += aDataRawRowSub & 0xFF;
             }
             return sum;
         }
