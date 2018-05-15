@@ -402,8 +402,19 @@ public class LosslessFactoryTest extends TestCase
         PDImageXObject ximage = LosslessFactory.createFromImage(document, imageCMYK);
         validate(ximage, 8, imageCMYK.getWidth(), imageCMYK.getHeight(), "png", PDDeviceCMYK.INSTANCE.getName());
 
-        // We can not compare the CMYK image with the display only RGB image ... the values won't match...
-        // checkIdent(imageCMYK, ximage.getImage());
+        doWritePDF(document, ximage, testResultsDir, "cmyk.pdf");
+
+        // The image in CMYK got color-truncated because the ISO_Coated colorspace is way smaller 
+        // than the sRGB colorspace. The image is converted back to sRGB when calling PDImageXObject.getImage().
+        // So to be able to check the image data we must also convert our CMYK Image back to sRGB
+		//BufferedImage compareImageRGB = new BufferedImage(imageCMYK.getWidth(), imageCMYK.getHeight(),
+				//BufferedImage.TYPE_INT_BGR);
+		//Graphics2D graphics = compareImageRGB.createGraphics();
+		//graphics.drawImage(imageCMYK, 0, 0, null);
+		//graphics.dispose();
+		//ImageIO.write(compareImageRGB, "TIFF", new File("/tmp/compare.tiff"));
+        //ImageIO.write(ximage.getImage(), "TIFF", new File("/tmp/compare2.tiff"));
+		//checkIdent(compareImageRGB, ximage.getImage());
     }
 
     public void testCreateLosslessFrom16Bit() throws IOException
@@ -424,6 +435,7 @@ public class LosslessFactoryTest extends TestCase
         PDImageXObject ximage = LosslessFactory.createFromImage(document, img16Bit);
         validate(ximage, 16, img16Bit.getWidth(), img16Bit.getHeight(), "png", PDDeviceRGB.INSTANCE.getName());
         checkIdent(image, ximage.getImage());
+        doWritePDF(document, ximage, testResultsDir, "misc-16bit.pdf");
     }
 
     public void testCreateLosslessFromImageINT_BGR() throws IOException
