@@ -74,15 +74,15 @@ public final class LosslessFactory
         }
         else
         {
-            // We try to encode the image with predictor 
+			// We try to encode the image with predictor
 			if (usePredictorEncoder)
-            {
-                PDImageXObject pdImageXObject = new PredictorEncoder(document, image).encode();
-                if (pdImageXObject != null)
-                {
-                    return pdImageXObject;
-                }
-            }
+			{
+				PDImageXObject pdImageXObject = new PredictorEncoder(document, image).encode();
+				if (pdImageXObject != null)
+				{
+					return pdImageXObject;
+				}
+			}
 
 			// Fallback: We export the image as 8-bit sRGB and might loose color information
             return createFromRGBImage(image, document);
@@ -403,7 +403,8 @@ public final class LosslessFactory
                     transferRowByte = prevRowByte = null;
                 }
 
-                for (int indexInTransferRow = 0; indexInTransferRow < elementsInTransferRow; indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
+				for (int indexInTransferRow = 0; indexInTransferRow < elementsInTransferRow;
+                     indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
                 {
                     // Copy the pixel values into the byte array
                     if (transferRowByte != null)
@@ -432,9 +433,7 @@ public final class LosslessFactory
                     writeEncodedValueAverage(writerPtr);
                     writeEncodedValuePaeth(writerPtr);
 
-                    /*
-                     * We shift the values into the prev / upper left values for the next pixel
-                     */
+                    //  We shift the values into the prev / upper left values for the next pixel
                     System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
                     System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
                     writerPtr += bytesPerPixel;
@@ -442,15 +441,11 @@ public final class LosslessFactory
 
                 byte[] rowToWrite = chooseDataRowToWrite();
 
-                /*
-                 * Write and compress the row as long it is hot (CPU cache wise)
-                 */
+                // Write and compress the row as long it is hot (CPU cache wise)
                 zip.write(rowToWrite, 0, rowToWrite.length);
 
                 {
-                    /*
-                     * We swap prev and transfer row, so that we have the prev row for the next row.
-                     */
+                    // We swap prev and transfer row, so that we have the prev row for the next row.
                     Object temp = prevRow;
                     prevRow = transferRow;
                     transferRow = temp;
