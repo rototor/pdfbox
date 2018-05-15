@@ -626,7 +626,7 @@ public final class LosslessFactory
 
         private static byte pngFilterAverage(int x, int a, int b)
         {
-            return (byte)(x - ((a - b) / 2));
+            return (byte)(x - ((b + a) / 2));
         }
 
         private static byte pngFilterPaeth(int x, int a, int b, int c)
