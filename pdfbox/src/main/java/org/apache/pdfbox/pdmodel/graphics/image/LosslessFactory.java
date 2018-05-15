@@ -364,9 +364,9 @@ public final class LosslessFactory
 
             int alphaPtr = 0;
 
-            for (int i = 0; i < height; i++)
+            for (int rowNum = 0; rowNum < height; rowNum++)
             {
-                imageRaster.getDataElements(0, i, width, 1, transferRow);
+                imageRaster.getDataElements(0, rowNum, width, 1, transferRow);
 
                 // We start to write at index one, as the predictor marker is in index zero
                 int writerPtr = 1;
@@ -427,16 +427,24 @@ public final class LosslessFactory
                     }
 
                     // Encode the pixel values in the different encodings
-                    writeBytes(dataRawRowNone, writerPtr, xValues, bytesPerPixel);
-                    writeEncodedValueSub(writerPtr);
-                    writeEncodedValueUp(writerPtr);
-                    writeEncodedValueAverage(writerPtr);
-                    writeEncodedValuePaeth(writerPtr);
+                    int length = xValues.length;
+                    for (int bytePtr = 0; bytePtr < length; bytePtr++)
+                    {
+						int x = xValues[bytePtr] & 0xFF;
+						int a = aValues[bytePtr] & 0xFF;
+						int b = bValues[bytePtr] & 0xFF;
+						int c = cValues[bytePtr] & 0xFF;
+						dataRawRowNone[writerPtr] = (byte) x;
+						dataRawRowSub[writerPtr] = pngFilterSub(x, a);
+						dataRawRowUp[writerPtr] = pngFilterUp(x, b);
+						dataRawRowAverage[writerPtr] = pngFilterAverage(x, a, b);
+						dataRawRowPaeth[writerPtr] = pngFilterPaeth(x, a, b, c);
+                        writerPtr++;
+                    }
 
                     //  We shift the values into the prev / upper left values for the next pixel
                     System.arraycopy(xValues, 0, aValues, 0, bytesPerPixel);
                     System.arraycopy(bValues, 0, cValues, 0, bytesPerPixel);
-                    writerPtr += bytesPerPixel;
                 }
 
                 byte[] rowToWrite = chooseDataRowToWrite();
@@ -563,29 +571,6 @@ public final class LosslessFactory
             return imageXObject;
         }
 
-        private void writeEncodedValuePaeth(int writerPtr)
-        {
-            pngFilterPaeth(xValues, aValues, bValues, cValues, tmpResultValues, bytesPerPixel);
-            writeBytes(dataRawRowPaeth, writerPtr, tmpResultValues, bytesPerPixel);
-        }
-
-        private void writeEncodedValueAverage(int writerPtr)
-        {
-            pngFilterAverage(xValues, bValues, aValues, tmpResultValues, bytesPerPixel);
-            writeBytes(dataRawRowAverage, writerPtr, tmpResultValues, bytesPerPixel);
-        }
-
-        private void writeEncodedValueUp(int writerPtr)
-        {
-            pngFilterUp(xValues, bValues, tmpResultValues, bytesPerPixel);
-            writeBytes(dataRawRowUp, writerPtr, tmpResultValues, bytesPerPixel);
-        }
-
-        private void writeEncodedValueSub(int writerPtr)
-        {
-            pngFilterSub(xValues, aValues, tmpResultValues, bytesPerPixel);
-            writeBytes(dataRawRowSub, writerPtr, tmpResultValues, bytesPerPixel);
-        }
 
         /**
          * We look which row encoding is the "best" one, ie. has the lowest sum. We don't implement anything fancier to choose
@@ -625,75 +610,41 @@ public final class LosslessFactory
             return rowToWrite;
         }
 
-        private static void writeBytes(byte[] b, int offset, byte[] source, int length)
-        {
-            System.arraycopy(source, 0, b, offset, length);
-        }
-
         /*
          * PNG Filters, see https://www.w3.org/TR/PNG-Filters.html
          */
-        private static void pngFilterSub(byte[] x, byte[] a, byte[] result, int length)
+        private static byte pngFilterSub(int x, int a )
         {
-            assert x.length >= length;
-            assert a.length >= length;
-            for (int i = 0; i < length; i++)
-            {
-                int r = (x[i] & 0xFF) - (a[i] & 0xFF);
-                result[i] = (byte) (r);
-            }
+			return (byte) ((x & 0xFF) - (a & 0xFF));
         }
 
-        private static void pngFilterUp(byte[] x, byte[] b, byte[] res, int length)
+        private static byte pngFilterUp(int x, int b)
         {
             // Same as pngFilterSub, just called with the prior row
-            pngFilterSub(x, b, res, length);
+            return pngFilterSub(x, b);
         }
 
-        private static void pngFilterAverage(byte[] x, byte[] b, byte[] a, byte[] result,
-                int length)
+        private static byte pngFilterAverage(int x, int a, int b)
         {
-            assert x.length >= length;
-            assert b.length >= length;
-            for (int i = 0; i < length; i++)
-            {
-                int xV = (x[i] & 0xFF);
-                int bV = (b[i] & 0xFF);
-                int aV = (a[i] & 0xFF);
-                int r = xV - ((aV - bV) / 2);
-                result[i] = (byte) (r);
-            }
+            return (byte)(x - ((a - b) / 2));
         }
 
-        private static void pngFilterPaeth(byte[] x, byte[] a, byte[] b, byte[] c, byte[] result,
-                int length)
+        private static byte pngFilterPaeth(int x, int a, int b, int c)
         {
-            assert x.length >= length;
-            assert a.length >= length;
-            assert b.length >= length;
-            assert c.length >= length;
-            for (int i = 0; i < length; i++)
-            {
-                int xV = (x[i] & 0xFF);
-                int aV = (a[i] & 0xFF);
-                int bV = (b[i] & 0xFF);
-                int cV = (c[i] & 0xFF);
+            int p = a + b - c;
+            int pa = Math.abs(p - a);
+            int pb = Math.abs(p - b);
+            int pc = Math.abs(p - c);
+            final int Pr;
+            if (pa <= pb && pa <= pc)
+                Pr = a;
+            else if (pb <= pc)
+                Pr = b;
+            else
+                Pr = c;
 
-                int p = aV + bV - cV;
-                int pa = Math.abs(p - aV);
-                int pb = Math.abs(p - bV);
-                int pc = Math.abs(p - cV);
-                final int Pr;
-                if (pa <= pb && pa <= pc)
-                    Pr = aV;
-                else if (pb <= pc)
-                    Pr = bV;
-                else
-                    Pr = cV;
-
-                int r = xV - Pr;
-                result[i] = (byte) (r);
-            }
+            int r = x - Pr;
+            return (byte) (r);
         }
 
         private static long estCompressSum(byte[] dataRawRowSub)
