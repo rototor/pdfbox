@@ -265,7 +265,7 @@ public final class LosslessFactory
             this.imageType = image.getType();
             this.hasAlpha = image.getColorModel().getNumComponents() != image.getColorModel()
                     .getNumColorComponents();
-            this.alphaImageData = hasAlpha ? new byte[width * height] : null;
+            this.alphaImageData = hasAlpha ? new byte[width * height * bytesPerComponent] : null;
 
             // The rows have 1-byte encoding marker and width * BYTES_PER_PIXEL pixel-bytes
             int dataRowByteCount = width * bytesPerPixel + 1;
@@ -404,7 +404,7 @@ public final class LosslessFactory
                 }
 
 				for (int indexInTransferRow = 0; indexInTransferRow < elementsInTransferRow;
-                     indexInTransferRow += elementsInRowPerPixel, alphaPtr++)
+                     indexInTransferRow += elementsInRowPerPixel, alphaPtr += bytesPerComponent)
                 {
                     // Copy the pixel values into the byte array
                     if (transferRowByte != null)
@@ -422,8 +422,8 @@ public final class LosslessFactory
                     else
                     {
                         // This must be short[]
-                        copyShortsToBytes(transferRowShort, indexInTransferRow, xValues);
-                        copyShortsToBytes(prevRowShort, indexInTransferRow, bValues);
+						copyShortsToBytes(transferRowShort, indexInTransferRow, xValues, alphaImageData, alphaPtr);
+						copyShortsToBytes(prevRowShort, indexInTransferRow, bValues, null, 0);
                     }
 
                     // Encode the pixel values in the different encodings
@@ -513,13 +513,19 @@ public final class LosslessFactory
         }
 
         private static void copyShortsToBytes(short[] transferRow, int indexInTranferRow,
-                byte[] targetValues)
+                byte[] targetValues, byte[] alphaImageData, int alphaPtr)
         {
             for (int i = 0; i < targetValues.length;)
             {
                 short val = transferRow[indexInTranferRow++];
                 targetValues[i++] = (byte) ((val >> 8) & 0xFF);
                 targetValues[i++] = (byte) (val & 0xFF);
+            }
+            if (alphaImageData != null)
+            {
+                short alpha = transferRow[indexInTranferRow];
+				alphaImageData[alphaPtr] = (byte) ((alpha >> 8) & 0xFF);
+				alphaImageData[alphaPtr + 1] = (byte) (alpha & 0xFF);
             }
         }
 
@@ -565,7 +571,7 @@ public final class LosslessFactory
             if (image.getTransparency() != Transparency.OPAQUE)
             {
                 PDImageXObject pdMask = prepareImageXObject(document, alphaImageData,
-                        image.getWidth(), image.getHeight(), 8, PDDeviceGray.INSTANCE);
+						image.getWidth(), image.getHeight(), 8 * bytesPerComponent, PDDeviceGray.INSTANCE);
                 imageXObject.getCOSObject().setItem(COSName.SMASK, pdMask);
             }
             return imageXObject;

@@ -502,4 +502,30 @@ public class LosslessFactoryTest extends TestCase
         validate(ximage, 8, image.getWidth(), image.getHeight(), "png", PDDeviceRGB.INSTANCE.getName());
         checkIdent(image, ximage.getImage());
     }
+
+    public void testCreateLosslessFrom16BitPNG() throws IOException
+    {
+        PDDocument document = new PDDocument();
+        BufferedImage image = ImageIO.read(this.getClass().getResourceAsStream("16bit.png"));
+
+        assertEquals(64, image.getColorModel().getPixelSize());
+        assertEquals(Transparency.TRANSLUCENT, image.getColorModel().getTransparency());
+        assertEquals(4, image.getRaster().getNumDataElements());
+        assertEquals(java.awt.image.DataBuffer.TYPE_USHORT, image.getRaster().getDataBuffer().getDataType());
+
+        PDImageXObject ximage = LosslessFactory.createFromImage(document, image);
+
+        int w = image.getWidth();
+        int h = image.getHeight();
+        validate(ximage, 16, w, h, "png", PDDeviceRGB.INSTANCE.getName());
+        System.out.println(ximage.getImage());
+        checkIdent(image, ximage.getImage());
+        checkIdentRGB(image, ximage.getOpaqueImage());
+
+        assertNotNull(ximage.getSoftMask());
+        validate(ximage.getSoftMask(), 16, w, h, "png", PDDeviceGray.INSTANCE.getName());
+        assertEquals(35, colorCount(ximage.getSoftMask().getImage()));
+
+        doWritePDF(document, ximage, testResultsDir, "png16bit.pdf");
+    }
 }
