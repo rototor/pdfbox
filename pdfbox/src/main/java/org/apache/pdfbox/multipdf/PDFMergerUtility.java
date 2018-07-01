@@ -465,7 +465,16 @@ public class PDFMergerUtility
         if (destCatalog.getOpenAction() == null)
         {
             // PDFBOX-3972: get local dest page index, it must be reassigned after the page cloning
-            PDDestinationOrAction openAction = srcCatalog.getOpenAction();
+            PDDestinationOrAction openAction = null;
+            try
+            {
+                openAction = srcCatalog.getOpenAction();
+            }
+            catch (IOException ex)
+            {
+                // PDFBOX-4223
+                LOG.error("Invalid OpenAction ignored", ex);
+            }
             PDDestination openActionDestination = null;
             if (openAction instanceof PDActionGoTo)
             {
@@ -486,7 +495,7 @@ public class PDFMergerUtility
                 }
             }
 
-            destCatalog.setOpenAction(srcCatalog.getOpenAction());
+            destCatalog.setOpenAction(openAction);
         }
 
         PDFCloneUtility cloner = new PDFCloneUtility(destination);
@@ -619,9 +628,21 @@ public class PDFMergerUtility
             COSArray srcNums = (COSArray) srcLabels.getDictionaryObject(COSName.NUMS);
             if (srcNums != null)
             {
+                int startSize = destNums.size();
                 for (int i = 0; i < srcNums.size(); i += 2)
                 {
-                    COSNumber labelIndex = (COSNumber) srcNums.getObject(i);
+                    COSBase base = srcNums.getObject(i);
+                    if (!(base instanceof COSNumber))
+                    {
+                        LOG.error("page labels ignored, index " + i + " should be a number, but is " + base);
+                        // remove what we added
+                        while (destNums.size() > startSize)
+                        {
+                            destNums.remove(startSize);
+                        }
+                        break;
+                    }
+                    COSNumber labelIndex = (COSNumber) base;
                     long labelIndexValue = labelIndex.intValue();
                     destNums.add(COSInteger.get(labelIndexValue + destPageCount));
                     destNums.add(cloner.cloneForNewDocument(srcNums.getObject(i + 1)));
@@ -633,10 +654,18 @@ public class PDFMergerUtility
         COSStream srcMetadata = (COSStream) srcCatalog.getCOSObject().getDictionaryObject(COSName.METADATA);
         if (destMetadata == null && srcMetadata != null)
         {
-            PDStream newStream = new PDStream(destination, srcMetadata.createInputStream(), (COSName) null);           
-            mergeInto(srcMetadata, newStream.getCOSObject(), 
-                    new HashSet<COSName>(Arrays.asList(COSName.FILTER, COSName.LENGTH)));           
-            destCatalog.getCOSObject().setItem(COSName.METADATA, newStream);
+            try
+            {
+                PDStream newStream = new PDStream(destination, srcMetadata.createInputStream(), (COSName) null);           
+                mergeInto(srcMetadata, newStream.getCOSObject(), 
+                        new HashSet<COSName>(Arrays.asList(COSName.FILTER, COSName.LENGTH)));           
+                destCatalog.getCOSObject().setItem(COSName.METADATA, newStream);
+            }
+            catch (IOException ex)
+            {
+                // PDFBOX-4227 cleartext XMP stream with /Flate 
+                LOG.error("Metadata skipped because it could not be read", ex);
+            }
         }
 
         COSDictionary destOCP = (COSDictionary) destCatalog.getCOSObject().getDictionaryObject(COSName.OCPROPERTIES);
