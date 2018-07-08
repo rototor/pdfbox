@@ -1103,6 +1103,16 @@ public class PDFDebugger extends JFrame
                 throw new RuntimeException(e);
             }
         }
+        performApplicationExit();
+    }
+
+    /**
+     * Exit the application after the window is closed. This is protected to
+     * let subclasses override the behavior.
+     */
+    @SuppressWarnings("WeakerAccess")
+    protected void performApplicationExit()
+    {
         System.exit(0);
     }
 
