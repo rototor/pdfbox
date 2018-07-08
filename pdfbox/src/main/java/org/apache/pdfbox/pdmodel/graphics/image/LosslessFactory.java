@@ -59,11 +59,6 @@ public final class LosslessFactory
     {
     }
 
-
-    /**
-     * Internal, only for benchmark purpuse
-     */
-    static boolean usePredictorEncoder = true;
     /**
      * Creates a new lossless encoded Image XObject from a Buffered Image.
      *

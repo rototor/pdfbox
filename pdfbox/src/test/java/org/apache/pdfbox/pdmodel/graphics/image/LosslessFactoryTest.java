@@ -46,20 +46,11 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream.AppendMode;
 import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceCMYK;
 import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceGray;
 import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
+import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.checkIdent;
+import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.colorCount;
+import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.doWritePDF;
+import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.validate;
 import org.apache.pdfbox.rendering.PDFRenderer;
-
-import javax.imageio.ImageIO;
-import java.awt.*;
-import java.awt.color.ColorSpace;
-import java.awt.color.ICC_ColorSpace;
-import java.awt.color.ICC_Profile;
-import java.awt.image.*;
-import java.io.File;
-import java.io.IOException;
-import java.util.Hashtable;
-import java.util.Random;
-
-import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.*;
 
 /**
  * Unit tests for LosslessFactory
@@ -181,7 +172,7 @@ public class LosslessFactoryTest extends TestCase
      */
     public void testCreateLosslessFromImageBITMASK_INT_ARGB() throws IOException
     {
-        doBitmaskTransparencyTest(BufferedImage.TYPE_4BYTE_ABGR, "bitmaskintargb.pdf");
+        doBitmaskTransparencyTest(BufferedImage.TYPE_INT_ARGB, "bitmaskintargb.pdf");
     }
 
     /**
@@ -516,6 +507,16 @@ public class LosslessFactoryTest extends TestCase
 
         PDImageXObject ximage = LosslessFactory.createFromImage(document, imgRgb);
         validate(ximage, 8, imgRgb.getWidth(), imgRgb.getHeight(), "png", PDDeviceRGB.INSTANCE.getName());
+        checkIdent(image, ximage.getImage());
+    }
+
+    public void testCreateLosslessFromGovdocs_032_163() throws IOException
+    {
+        PDDocument document = new PDDocument();
+        BufferedImage image = ImageIO.read(this.getClass().getResourceAsStream("032163.jpg"));
+
+        PDImageXObject ximage = LosslessFactory.createFromImage(document, image);
+        validate(ximage, 8, image.getWidth(), image.getHeight(), "png", PDDeviceRGB.INSTANCE.getName());
         checkIdent(image, ximage.getImage());
     }
 
