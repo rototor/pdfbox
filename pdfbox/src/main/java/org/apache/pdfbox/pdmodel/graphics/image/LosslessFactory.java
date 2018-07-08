@@ -15,16 +15,7 @@
  */
 package org.apache.pdfbox.pdmodel.graphics.image;
 
-import org.apache.pdfbox.cos.COSDictionary;
-import org.apache.pdfbox.cos.COSInteger;
-import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.filter.Filter;
-import org.apache.pdfbox.filter.FilterFactory;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.graphics.color.*;
-
-import javax.imageio.stream.MemoryCacheImageOutputStream;
-import java.awt.*;
+import java.awt.Transparency;
 import java.awt.color.ColorSpace;
 import java.awt.color.ICC_ColorSpace;
 import java.awt.color.ICC_Profile;
@@ -38,6 +29,19 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
+import javax.imageio.stream.MemoryCacheImageOutputStream;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSInteger;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.filter.Filter;
+import org.apache.pdfbox.filter.FilterFactory;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.graphics.color.PDColorSpace;
+import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceCMYK;
+import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceColorSpace;
+import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceGray;
+import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
+import org.apache.pdfbox.pdmodel.graphics.color.PDICCBased;
 
 /**
  * Factory for creating a PDImageXObject containing a lossless compressed image.
@@ -46,16 +50,20 @@ import java.util.zip.DeflaterOutputStream;
  */
 public final class LosslessFactory
 {
-    private LosslessFactory()
-    {
-    }
-    
-    
-    /** 
-     * Internal, only for benchmark purpuse
+    /**
+     * Internal, only for benchmark purpose
      */
     static boolean usePredictorEncoder = true;
 
+    private LosslessFactory()
+    {
+    }
+
+
+    /**
+     * Internal, only for benchmark purpuse
+     */
+    static boolean usePredictorEncoder = true;
     /**
      * Creates a new lossless encoded Image XObject from a Buffered Image.
      *
@@ -74,19 +82,19 @@ public final class LosslessFactory
         }
         else
         {
-			// We try to encode the image with predictor
-			if (usePredictorEncoder)
-			{
-				PDImageXObject pdImageXObject = new PredictorEncoder(document, image).encode();
-				if (pdImageXObject != null)
-				{
-					return pdImageXObject;
-				}
-			}
+            // We try to encode the image with predictor
+            if (usePredictorEncoder)
+            {
+                PDImageXObject pdImageXObject = new PredictorEncoder(document, image).encode();
+                if (pdImageXObject != null)
+                {
+                    return pdImageXObject;
+                }
+            }
 
-			// Fallback: We export the image as 8-bit sRGB and might loose color information
+            // Fallback: We export the image as 8-bit sRGB and might loose color information
             return createFromRGBImage(image, document);
-        }      
+        }
     }
 
     // grayscale images need one color per sample
@@ -214,7 +222,7 @@ public final class LosslessFactory
         return new PDImageXObject(document, encodedByteStream, COSName.FLATE_DECODE, 
                 width, height, bitsPerComponent, initColorSpace);
     }
-    
+
     private static class PredictorEncoder
     {
         private final PDDocument document;
@@ -244,7 +252,7 @@ public final class LosslessFactory
         final byte[] tmpResultValues;
 
         /**
-         * Initialise the encoder and set all final fields
+         * Initialize the encoder and set all final fields
          */
         PredictorEncoder(PDDocument document, BufferedImage image)
         {
@@ -296,62 +304,64 @@ public final class LosslessFactory
 
         /**
          * Tries to compress the image using a predictor.
-         * 
-         * @return the image or null if it is not possible to encoded the image (e.g. not supported raster format etc.)
+         *
+         * @return the image or null if it is not possible to encoded the image (e.g. not supported
+         * raster format etc.)
          */
         PDImageXObject encode() throws IOException
         {
             Raster imageRaster = image.getRaster();
             final int elementsInRowPerPixel;
 
-            // This variable store a row of the image each, the exact type depends
+            // These variables store a row of the image each, the exact type depends
             // on the image encoding. Can be a int[], short[] or byte[]
-            Object prevRow, transferRow;
+            Object prevRow;
+            Object transferRow;
 
             switch (imageType)
             {
-            case BufferedImage.TYPE_CUSTOM:
-            {
-                switch (imageRaster.getTransferType())
+                case BufferedImage.TYPE_CUSTOM:
                 {
-                case DataBuffer.TYPE_USHORT:
-                    elementsInRowPerPixel = componentsPerPixel;
-                    prevRow = new short[width * elementsInRowPerPixel];
-                    transferRow = new short[width * elementsInRowPerPixel];
+                    switch (imageRaster.getTransferType())
+                    {
+                        case DataBuffer.TYPE_USHORT:
+                            elementsInRowPerPixel = componentsPerPixel;
+                            prevRow = new short[width * elementsInRowPerPixel];
+                            transferRow = new short[width * elementsInRowPerPixel];
+                            break;
+                        case DataBuffer.TYPE_BYTE:
+                            elementsInRowPerPixel = componentsPerPixel;
+                            prevRow = new byte[width * elementsInRowPerPixel];
+                            transferRow = new byte[width * elementsInRowPerPixel];
+                            break;
+                        default:
+                            return null;
+                    }
                     break;
-                case DataBuffer.TYPE_BYTE:
+                }
+
+                case BufferedImage.TYPE_3BYTE_BGR:
+                case BufferedImage.TYPE_4BYTE_ABGR:
+                {
                     elementsInRowPerPixel = componentsPerPixel;
                     prevRow = new byte[width * elementsInRowPerPixel];
                     transferRow = new byte[width * elementsInRowPerPixel];
                     break;
-                default:
-                    return null;
                 }
-                break;
-            }
 
-            case BufferedImage.TYPE_3BYTE_BGR:
-            case BufferedImage.TYPE_4BYTE_ABGR:
-            {
-                elementsInRowPerPixel = componentsPerPixel;
-                prevRow = new byte[width * elementsInRowPerPixel];
-                transferRow = new byte[width * elementsInRowPerPixel];
-                break;
-            }
+                case BufferedImage.TYPE_INT_BGR:
+                case BufferedImage.TYPE_INT_ARGB:
+                case BufferedImage.TYPE_INT_RGB:
+                {
+                    elementsInRowPerPixel = 1;
+                    prevRow = new int[width * elementsInRowPerPixel];
+                    transferRow = new int[width * elementsInRowPerPixel];
+                    break;
+                }
 
-            case BufferedImage.TYPE_INT_BGR:
-            case BufferedImage.TYPE_INT_ARGB:
-            case BufferedImage.TYPE_INT_RGB:
-            {
-                elementsInRowPerPixel = 1;
-                prevRow = new int[width * elementsInRowPerPixel];
-                transferRow = new int[width * elementsInRowPerPixel];
-                break;
-            }
-
-            default:
-                // We can not handle this unknown format
-                return null;
+                default:
+                    // We can not handle this unknown format
+                    return null;
             }
 
             final int elementsInTransferRow = width * elementsInRowPerPixel;
@@ -403,8 +413,8 @@ public final class LosslessFactory
                     transferRowByte = prevRowByte = null;
                 }
 
-				for (int indexInTransferRow = 0; indexInTransferRow < elementsInTransferRow;
-                     indexInTransferRow += elementsInRowPerPixel, alphaPtr += bytesPerComponent)
+                for (int indexInTransferRow = 0; indexInTransferRow < elementsInTransferRow;
+                        indexInTransferRow += elementsInRowPerPixel, alphaPtr += bytesPerComponent)
                 {
                     // Copy the pixel values into the byte array
                     if (transferRowByte != null)
@@ -422,23 +432,23 @@ public final class LosslessFactory
                     else
                     {
                         // This must be short[]
-						copyShortsToBytes(transferRowShort, indexInTransferRow, xValues, alphaImageData, alphaPtr);
-						copyShortsToBytes(prevRowShort, indexInTransferRow, bValues, null, 0);
+                        copyShortsToBytes(transferRowShort, indexInTransferRow, xValues, alphaImageData, alphaPtr);
+                        copyShortsToBytes(prevRowShort, indexInTransferRow, bValues, null, 0);
                     }
 
                     // Encode the pixel values in the different encodings
                     int length = xValues.length;
                     for (int bytePtr = 0; bytePtr < length; bytePtr++)
                     {
-						int x = xValues[bytePtr] & 0xFF;
-						int a = aValues[bytePtr] & 0xFF;
-						int b = bValues[bytePtr] & 0xFF;
-						int c = cValues[bytePtr] & 0xFF;
-						dataRawRowNone[writerPtr] = (byte) x;
-						dataRawRowSub[writerPtr] = pngFilterSub(x, a);
-						dataRawRowUp[writerPtr] = pngFilterUp(x, b);
-						dataRawRowAverage[writerPtr] = pngFilterAverage(x, a, b);
-						dataRawRowPaeth[writerPtr] = pngFilterPaeth(x, a, b, c);
+                        int x = xValues[bytePtr] & 0xFF;
+                        int a = aValues[bytePtr] & 0xFF;
+                        int b = bValues[bytePtr] & 0xFF;
+                        int c = cValues[bytePtr] & 0xFF;
+                        dataRawRowNone[writerPtr] = (byte) x;
+                        dataRawRowSub[writerPtr] = pngFilterSub(x, a);
+                        dataRawRowUp[writerPtr] = pngFilterUp(x, b);
+                        dataRawRowAverage[writerPtr] = pngFilterAverage(x, a, b);
+                        dataRawRowPaeth[writerPtr] = pngFilterPaeth(x, a, b, c);
                         writerPtr++;
                     }
 
@@ -452,12 +462,10 @@ public final class LosslessFactory
                 // Write and compress the row as long it is hot (CPU cache wise)
                 zip.write(rowToWrite, 0, rowToWrite.length);
 
-                {
-                    // We swap prev and transfer row, so that we have the prev row for the next row.
-                    Object temp = prevRow;
-                    prevRow = transferRow;
-                    transferRow = temp;
-                }
+                // We swap prev and transfer row, so that we have the prev row for the next row.
+                Object temp = prevRow;
+                prevRow = transferRow;
+                transferRow = temp;
             }
             zip.close();
             deflater.end();
@@ -469,36 +477,32 @@ public final class LosslessFactory
                 byte[] alphaImageData, int alphaPtr)
         {
             int val = transferRow[indexInTranferRow];
-            byte b0 = (byte) ((val & 0xFF));
+            byte b0 = (byte) (val & 0xFF);
             byte b1 = (byte) ((val >> 8) & 0xFF);
             byte b2 = (byte) ((val >> 16) & 0xFF);
 
             switch (imageType)
             {
-            case BufferedImage.TYPE_INT_BGR:
-            {
-                targetValues[0] = b0;
-                targetValues[1] = b1;
-                targetValues[2] = b2;
-                break;
-            }
-            case BufferedImage.TYPE_INT_ARGB:
-            {
-                targetValues[0] = b2;
-                targetValues[1] = b1;
-                targetValues[2] = b0;
-                if (alphaImageData != null)
-                {
-                    byte b3 = (byte) ((val >> 24) & 0xFF);
-                    alphaImageData[alphaPtr] = b3;
-                }
-                break;
-            }
-            case BufferedImage.TYPE_INT_RGB:
-                targetValues[0] = b2;
-                targetValues[1] = b1;
-                targetValues[2] = b0;
-                break;
+                case BufferedImage.TYPE_INT_BGR:
+                    targetValues[0] = b0;
+                    targetValues[1] = b1;
+                    targetValues[2] = b2;
+                    break;
+                case BufferedImage.TYPE_INT_ARGB:
+                    targetValues[0] = b2;
+                    targetValues[1] = b1;
+                    targetValues[2] = b0;
+                    if (alphaImageData != null)
+                    {
+                        byte b3 = (byte) ((val >> 24) & 0xFF);
+                        alphaImageData[alphaPtr] = b3;
+                    }
+                    break;
+                case BufferedImage.TYPE_INT_RGB:
+                    targetValues[0] = b2;
+                    targetValues[1] = b1;
+                    targetValues[2] = b0;
+                    break;
             }
         }
 
@@ -515,35 +519,35 @@ public final class LosslessFactory
         private static void copyShortsToBytes(short[] transferRow, int indexInTranferRow,
                 byte[] targetValues, byte[] alphaImageData, int alphaPtr)
         {
-            for (int i = 0; i < targetValues.length;)
+            int itr = indexInTranferRow;
+            for (int i = 0; i < targetValues.length; i += 2)
             {
-                short val = transferRow[indexInTranferRow++];
-                targetValues[i++] = (byte) ((val >> 8) & 0xFF);
-                targetValues[i++] = (byte) (val & 0xFF);
+                short val = transferRow[itr++];
+                targetValues[i] = (byte) ((val >> 8) & 0xFF);
+                targetValues[i + 1] = (byte) (val & 0xFF);
             }
             if (alphaImageData != null)
             {
-                short alpha = transferRow[indexInTranferRow];
-				alphaImageData[alphaPtr] = (byte) ((alpha >> 8) & 0xFF);
-				alphaImageData[alphaPtr + 1] = (byte) (alpha & 0xFF);
+                short alpha = transferRow[itr];
+                alphaImageData[alphaPtr] = (byte) ((alpha >> 8) & 0xFF);
+                alphaImageData[alphaPtr + 1] = (byte) (alpha & 0xFF);
             }
         }
 
         private PDImageXObject preparePredictorPDImage(ByteArrayOutputStream stream,
                 int bitsPerComponent) throws IOException
         {
-            int height = image.getHeight();
-            int width = image.getWidth();
+            int h = image.getHeight();
+            int w = image.getWidth();
 
             ColorSpace srcCspace = image.getColorModel().getColorSpace();
             PDColorSpace pdColorSpace = srcCspace.getType() != ColorSpace.TYPE_CMYK
-                    ? PDDeviceRGB.INSTANCE : PDDeviceCMYK.INSTANCE;
+                                        ? PDDeviceRGB.INSTANCE : PDDeviceCMYK.INSTANCE;
 
             // Encode the image profile if the image has one
             if (srcCspace instanceof ICC_ColorSpace)
             {
-                ICC_ColorSpace icc_colorSpace = (ICC_ColorSpace) srcCspace;
-                ICC_Profile profile = icc_colorSpace.getProfile();
+                ICC_Profile profile = ((ICC_ColorSpace) srcCspace).getProfile();
                 // We only encode a color profile if it is not sRGB
                 if (profile != ICC_Profile.getInstance(ColorSpace.CS_sRGB))
                 {
@@ -558,32 +562,32 @@ public final class LosslessFactory
             }
 
             PDImageXObject imageXObject = new PDImageXObject(document,
-                    new ByteArrayInputStream(stream.toByteArray()), COSName.FLATE_DECODE, width,
-                    height, bitsPerComponent, pdColorSpace);
+                    new ByteArrayInputStream(stream.toByteArray()), COSName.FLATE_DECODE, w,
+                    h, bitsPerComponent, pdColorSpace);
 
             COSDictionary decodeParms = new COSDictionary();
             decodeParms.setItem(COSName.BITS_PER_COMPONENT, COSInteger.get(bitsPerComponent));
             decodeParms.setItem(COSName.PREDICTOR, COSInteger.get(15));
-            decodeParms.setItem(COSName.COLUMNS, COSInteger.get(width));
+            decodeParms.setItem(COSName.COLUMNS, COSInteger.get(w));
             decodeParms.setItem(COSName.COLORS, COSInteger.get(srcCspace.getNumComponents()));
             imageXObject.getCOSObject().setItem(COSName.DECODE_PARMS, decodeParms);
 
             if (image.getTransparency() != Transparency.OPAQUE)
             {
                 PDImageXObject pdMask = prepareImageXObject(document, alphaImageData,
-						image.getWidth(), image.getHeight(), 8 * bytesPerComponent, PDDeviceGray.INSTANCE);
+                        image.getWidth(), image.getHeight(), 8 * bytesPerComponent, PDDeviceGray.INSTANCE);
                 imageXObject.getCOSObject().setItem(COSName.SMASK, pdMask);
             }
             return imageXObject;
         }
 
-
         /**
-         * We look which row encoding is the "best" one, ie. has the lowest sum. We don't implement anything fancier to choose
-         * the right row encoding. This is just the recommend algorithm in the spec. The get the perfect encoding you would need
-         * to do a brute force check how all the different encoded rows compress in the zip stream together. You have would have
+         * We look which row encoding is the "best" one, ie. has the lowest sum. We don't implement
+         * anything fancier to choose the right row encoding. This is just the recommend algorithm
+         * in the spec. The get the perfect encoding you would need to do a brute force check how
+         * all the different encoded rows compress in the zip stream together. You have would have
          * to check 5*image-height permutations...
-         * 
+         *
          * @return the "best" row encoding of the row encodings
          */
         private byte[] chooseDataRowToWrite()
@@ -619,9 +623,9 @@ public final class LosslessFactory
         /*
          * PNG Filters, see https://www.w3.org/TR/PNG-Filters.html
          */
-        private static byte pngFilterSub(int x, int a )
+        private static byte pngFilterSub(int x, int a)
         {
-			return (byte) ((x & 0xFF) - (a & 0xFF));
+            return (byte) ((x & 0xFF) - (a & 0xFF));
         }
 
         private static byte pngFilterUp(int x, int b)
@@ -632,7 +636,7 @@ public final class LosslessFactory
 
         private static byte pngFilterAverage(int x, int a, int b)
         {
-            return (byte)(x - ((b + a) / 2));
+            return (byte) (x - ((b + a) / 2));
         }
 
         private static byte pngFilterPaeth(int x, int a, int b, int c)
@@ -641,15 +645,21 @@ public final class LosslessFactory
             int pa = Math.abs(p - a);
             int pb = Math.abs(p - b);
             int pc = Math.abs(p - c);
-            final int Pr;
+            final int pr;
             if (pa <= pb && pa <= pc)
-                Pr = a;
+            {
+                pr = a;
+            }
             else if (pb <= pc)
-                Pr = b;
+            {
+                pr = b;
+            }
             else
-                Pr = c;
+            {
+                pr = c;
+            }
 
-            int r = x - Pr;
+            int r = x - pr;
             return (byte) (r);
         }
 
