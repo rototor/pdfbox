@@ -653,7 +653,25 @@ public final class LosslessFactory
             return (byte) (r);
         }
 
+
         private static long estCompressSum(byte[] dataRawRowSub)
+        {
+            if(useAbsEstSum)
+                return estCompressSumAbs(dataRawRowSub);
+            return estCompressSumSign(dataRawRowSub);
+        }
+
+        private static long estCompressSumAbs(byte[] dataRawRowSub)
+        {
+            long sum = 0;
+            for (byte aDataRawRowSub : dataRawRowSub)
+            {
+                sum += Math.abs(aDataRawRowSub);
+            }
+            return sum;
+        }
+
+        private static long estCompressSumSign(byte[] dataRawRowSub)
         {
             long sum = 0;
             for (byte aDataRawRowSub : dataRawRowSub)
@@ -663,4 +681,5 @@ public final class LosslessFactory
             return sum;
         }
     }
+	static boolean useAbsEstSum = false;
 }
