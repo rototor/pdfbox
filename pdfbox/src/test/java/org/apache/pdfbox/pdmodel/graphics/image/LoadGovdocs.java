@@ -9,6 +9,7 @@ import java.net.URL;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Vector;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -24,6 +25,15 @@ public class LoadGovdocs
             Arrays.asList(ImageIO.getReaderFileSuffixes()));
     static File outputDir = new File("/tmp/loadgovdocs_out");
 
+    static class CompressInfoEntry
+    {
+        String filename;
+        int sizeSigned;
+        int sizeAbs;
+    }
+
+    static Vector<CompressInfoEntry> infoEntries = new Vector<CompressInfoEntry>();
+
     public static void main(String[] args) throws IOException
     {
         System.out.println("supported suffixes: " + suffixes);
@@ -32,6 +42,7 @@ public class LoadGovdocs
         if (args.length > 0)
         {
             String directory = args[0];
+            FileWriter fileWriter = new FileWriter(new File(outputDir, "size_compare.txt"));
             File[] files = new File(directory).listFiles();
             if (files != null)
             {
@@ -44,6 +55,16 @@ public class LoadGovdocs
                         {
                             System.out.println("Processing " + file.getName());
                             processZipStream(inputStream);
+                            for (CompressInfoEntry infoEntry : infoEntries)
+                            {
+                                fileWriter.append(String.format("%s %8d (sign) / %8d (abs) %s\n",
+                                        infoEntry.filename, infoEntry.sizeSigned, infoEntry.sizeAbs,
+                                        infoEntry.sizeAbs < infoEntry.sizeSigned ? " abs better"
+                                                : infoEntry.sizeSigned < infoEntry.sizeAbs
+                                                        ? " signed better " : " both equal "));
+                            }
+                            infoEntries.clear();
+                            fileWriter.flush();
                         }
                         finally
                         {
@@ -52,6 +73,7 @@ public class LoadGovdocs
                     }
                 }
             }
+            fileWriter.close();
         }
         else
         {
@@ -125,6 +147,9 @@ public class LoadGovdocs
                         BufferedImage bim1;
                         String fileName = ze.getName();
                         fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+
+                        CompressInfoEntry infoEntry = new CompressInfoEntry();
+                        infoEntry.filename = fileName;
                         byte[] originalImageBytes;
                         try
                         {
@@ -157,7 +182,11 @@ public class LoadGovdocs
                         try
                         {
                             // create
+                            LosslessFactory.useAbsEstSum = false;
                             PDImageXObject imgXObject = LosslessFactory.createFromImage(doc, bim1);
+                            LosslessFactory.useAbsEstSum = true;
+                            PDImageXObject imgXObjectAbs = LosslessFactory.createFromImage(doc,
+                                    bim1);
                             System.out.println(imgXObject.getCOSObject());
                             if (imgXObject.getBitsPerComponent() != 8)
                             {
@@ -203,6 +232,9 @@ public class LoadGovdocs
                             }
                             else
                             {
+                                infoEntry.sizeAbs = imgXObjectAbs.getStream().getLength();
+                                infoEntry.sizeSigned = imgXObject.getStream().getLength();
+                                infoEntries.add(infoEntry);
                                 System.out.println(ze.getName() + " ok");
                             }
                         }
