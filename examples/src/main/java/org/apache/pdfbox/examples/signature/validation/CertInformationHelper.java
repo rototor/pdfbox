@@ -38,7 +38,7 @@ import org.bouncycastle.asn1.DERTaggedObject;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
-import org.bouncycastle.x509.extension.X509ExtensionUtil;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 
 public class CertInformationHelper
 {
@@ -146,7 +146,7 @@ public class CertInformationHelper
     protected static void getAuthorityInfoExtensionValue(byte[] extensionValue,
             CertSignatureInformation certInfo) throws IOException
     {
-        ASN1Sequence asn1Seq = (ASN1Sequence) X509ExtensionUtil.fromExtensionValue(extensionValue);
+        ASN1Sequence asn1Seq = (ASN1Sequence) JcaX509ExtensionUtils.parseExtensionValue(extensionValue);
         Enumeration<?> objects = asn1Seq.getObjects();
         while (objects.hasMoreElements())
         {
@@ -171,8 +171,8 @@ public class CertInformationHelper
     }
 
     /**
-     * Gets the first CRL Url from given extension value. Structure has to be build as in 4.2.1.14
-     * CRL Distribution Points of RFC 2459.
+     * Gets the first CRL URL from given extension value. Structure has to be
+     * built as in 4.2.1.14 CRL Distribution Points of RFC 2459.
      *
      * @param extensionValue to get the extension value from
      * @return first CRL- URL or null
@@ -180,7 +180,7 @@ public class CertInformationHelper
      */
     protected static String getCrlUrlFromExtensionValue(byte[] extensionValue) throws IOException
     {
-        ASN1Sequence asn1Seq = (ASN1Sequence) X509ExtensionUtil.fromExtensionValue(extensionValue);
+        ASN1Sequence asn1Seq = (ASN1Sequence) JcaX509ExtensionUtils.parseExtensionValue(extensionValue);
         Enumeration<?> objects = asn1Seq.getObjects();
 
         while (objects.hasMoreElements())

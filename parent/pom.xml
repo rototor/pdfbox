@@ -23,7 +23,11 @@
     <parent>
         <groupId>org.apache</groupId>
         <artifactId>apache</artifactId>
+
+        <!-- don't increase number without investigation of the diffs
+             https://maven.apache.org/pom/asf/ due to failure to build on jdk6 -->
         <version>19</version>
+
         <relativePath />
     </parent>
 
@@ -50,10 +54,6 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
     
-    <prerequisites>
-    	<maven>3.0.0</maven>
-  	</prerequisites>
-
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -166,6 +166,23 @@
     <build>
         <plugins>
             <plugin>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules combine.children="append">
+                                <requireMavenVersion>
+                                    <version>3.0.0</version>
+                                </requireMavenVersion>
+                            </rules>    
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <showDeprecation>true</showDeprecation>
@@ -179,7 +196,7 @@
                 <configuration>
                     <source>1.6</source>
                     <links>
-                        <link>http://download.oracle.com/javase/1.6.0/docs/api/</link>
+                        <link>https://docs.oracle.com/javase/6/docs/api/</link>
                     </links>
                     <encoding>UTF-8</encoding>
                     <notimestamp>true</notimestamp>
@@ -238,7 +255,18 @@
 	                  </configuration>
 	               </execution>
 	            </executions>
-	        </plugin>
+                </plugin>
+                <plugin>
+                    <groupId>com.googlecode.maven-download-plugin</groupId>
+                    <artifactId>download-maven-plugin</artifactId>
+                    <version>1.3.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>com.googlecode.maven-download-plugin</groupId>
+                    <!-- can't use download-maven-plugin for JDK6, see PDFBOX-3532 -->
+                    <artifactId>maven-download-plugin</artifactId>
+                    <version>1.1.0</version>
+                </plugin>
         </plugins>
         <pluginManagement>
             <plugins>

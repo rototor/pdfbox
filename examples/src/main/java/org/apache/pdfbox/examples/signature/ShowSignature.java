@@ -57,6 +57,7 @@ import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.tsp.TSPException;
 import org.bouncycastle.tsp.TimeStampToken;
+import org.bouncycastle.util.Selector;
 import org.bouncycastle.util.Store;
 import org.bouncycastle.util.StoreException;
 
@@ -266,10 +267,13 @@ public final class ShowSignature
         // http://stackoverflow.com/a/9261365/535646
         CMSProcessable signedContent = new CMSProcessableByteArray(byteArray);
         CMSSignedData signedData = new CMSSignedData(signedContent, contents.getBytes());
+        @SuppressWarnings("unchecked")
         Store<X509CertificateHolder> certificatesStore = signedData.getCertificates();
         Collection<SignerInformation> signers = signedData.getSignerInfos().getSigners();
         SignerInformation signerInformation = signers.iterator().next();
-        Collection<X509CertificateHolder> matches = certificatesStore.getMatches(signerInformation.getSID());
+        @SuppressWarnings("unchecked")
+        Collection<X509CertificateHolder> matches =
+                certificatesStore.getMatches((Selector<X509CertificateHolder>) signerInformation.getSID());
         X509CertificateHolder certificateHolder = matches.iterator().next();
         X509Certificate certFromSignedData = new JcaX509CertificateConverter().getCertificate(certificateHolder);
         System.out.println("certFromSignedData: " + certFromSignedData);

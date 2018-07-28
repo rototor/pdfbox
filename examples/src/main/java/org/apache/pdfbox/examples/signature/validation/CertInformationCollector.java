@@ -50,6 +50,7 @@ import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.SignerInformation;
 import org.bouncycastle.tsp.TSPException;
 import org.bouncycastle.tsp.TimeStampToken;
+import org.bouncycastle.util.Selector;
 import org.bouncycastle.util.Store;
 
 /**
@@ -156,6 +157,7 @@ public class CertInformationCollector
         try
         {
             CMSSignedData signedData = new CMSSignedData(signatureContent);
+            @SuppressWarnings("unchecked")
             Store<X509CertificateHolder> certificatesStore = signedData.getCertificates();
 
             SignerInformation signerInformation = processSignerStore(certificatesStore, signedData,
@@ -239,8 +241,9 @@ public class CertInformationCollector
         Collection<SignerInformation> signers = signedData.getSignerInfos().getSigners();
         SignerInformation signerInformation = signers.iterator().next();
 
+        @SuppressWarnings("unchecked")
         Collection<X509CertificateHolder> matches = certificatesStore
-                .getMatches(signerInformation.getSID());
+                .getMatches((Selector<X509CertificateHolder>) signerInformation.getSID());
 
         X509Certificate certificate = getCertFromHolder(matches.iterator().next());
 

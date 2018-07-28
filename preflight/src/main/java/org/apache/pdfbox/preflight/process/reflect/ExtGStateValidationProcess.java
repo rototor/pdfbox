@@ -31,7 +31,7 @@ import static org.apache.pdfbox.preflight.PreflightConstants.ERROR_GRAPHIC_UNEXP
 import static org.apache.pdfbox.preflight.PreflightConstants.ERROR_TRANSPARENCY_EXT_GS_BLEND_MODE;
 import static org.apache.pdfbox.preflight.PreflightConstants.ERROR_TRANSPARENCY_EXT_GS_CA;
 import static org.apache.pdfbox.preflight.PreflightConstants.ERROR_TRANSPARENCY_EXT_GS_SOFT_MASK;
-import static org.apache.pdfbox.preflight.PreflightConstants.TRANPARENCY_DICTIONARY_KEY_EXTGSTATE_ENTRY_REGEX;
+import static org.apache.pdfbox.preflight.PreflightConstants.TRANSPARENCY_DICTIONARY_KEY_EXTGSTATE_ENTRY_REGEX;
 import static org.apache.pdfbox.preflight.PreflightConstants.TRANSPARENCY_DICTIONARY_KEY_BLEND_MODE;
 import static org.apache.pdfbox.preflight.PreflightConstants.TRANSPARENCY_DICTIONARY_KEY_LOWER_CA;
 import static org.apache.pdfbox.preflight.PreflightConstants.TRANSPARENCY_DICTIONARY_KEY_UPPER_CA;
@@ -69,7 +69,7 @@ public class ExtGStateValidationProcess extends AbstractProcess
      * Validate the ExtGState dictionaries.
      * 
      * @param context the context which contains the Resource dictionary.
-     * @throws ValidationException thrown if a the Extended Graphic State isn't valid.
+     * @throws ValidationException thrown if an Extended Graphic State isn't valid.
      */
     @Override
     public void validate(PreflightContext context) throws ValidationException
@@ -99,7 +99,7 @@ public class ExtGStateValidationProcess extends AbstractProcess
      * @param context the context which contains the Resource dictionary.
      * @param egsEntry a resource COSDictionary.
      * @return the list of ExtGState dictionaries.
-     * @throws ValidationException thrown if a the Extended Graphic State isn't valid.
+     * @throws ValidationException thrown if an Extended Graphic State isn't valid.
      */
     public List<COSDictionary> extractExtGStateDictionaries(PreflightContext context, COSDictionary egsEntry)
             throws ValidationException
@@ -113,16 +113,13 @@ public class ExtGStateValidationProcess extends AbstractProcess
             for (Object object : extGStates.keySet())
             {
                 COSName key = (COSName) object;
-                if (key.getName().matches(TRANPARENCY_DICTIONARY_KEY_EXTGSTATE_ENTRY_REGEX))
+                COSBase gsBase = extGStates.getItem(key);
+                COSDictionary gsDict = COSUtils.getAsDictionary(gsBase, cosDocument);
+                if (gsDict == null)
                 {
-                    COSBase gsBase = extGStates.getItem(key);
-                    COSDictionary gsDict = COSUtils.getAsDictionary(gsBase, cosDocument);
-                    if (gsDict == null)
-                    {
-                        throw new ValidationException("The Extended Graphics State dictionary is invalid");
-                    }
-                    listOfExtGState.add(gsDict);
+                    throw new ValidationException("The Extended Graphics State dictionary is invalid");
                 }
+                listOfExtGState.add(gsDict);
             }
         }
         return listOfExtGState;
