@@ -31,6 +31,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
+
+import com.sun.deploy.uitoolkit.impl.awt.AWTPluginUIToolkit;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.pdfbox.cos.COSArray;
@@ -279,6 +281,16 @@ public final class PDICCBased extends PDCIEBasedColorSpace
         {
             return alternateColorSpace.toRGBImage(raster);
         }
+    }
+
+    @Override
+    public BufferedImage toRawImage(WritableRaster raster) throws IOException
+    {
+        if(awtColorSpace == null)
+        {
+            return alternateColorSpace.toRawImage(raster);
+        }
+        return toRawImage(raster, awtColorSpace);
     }
 
     @Override
