@@ -19,6 +19,7 @@ package org.apache.pdfbox.pdmodel.graphics.color;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.sun.tools.corba.se.idl.constExpr.Not;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
@@ -35,6 +37,7 @@ import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSNull;
 import org.apache.pdfbox.pdmodel.common.COSArrayList;
 import org.apache.pdfbox.pdmodel.common.function.PDFunction;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * DeviceN colour spaces may contain an arbitrary number of colour components.
@@ -412,6 +415,57 @@ public class PDDeviceN extends PDSpecialColorSpace
 
         // convert the alternate color space to RGB
         return alternateColorSpace.toRGB(altValue);
+    }
+
+    @Override 
+    public BufferedImage toRawImage(WritableRaster raster)
+    {
+        return toRawImage(raster, new DummyDeviceNColorSpace(getNumberOfComponents()));
+    }
+
+    private static int getRawColorSpaceType(int numcomponents){
+        if(numcomponents == 1 )
+            return ColorSpace.TYPE_GRAY;
+        return ColorSpace.TYPE_2CLR + numcomponents - 2;
+    }
+
+    /**
+     *  Dummy colorspace for DeviceN. Only conversion to RGB is possible
+     */
+    private class DummyDeviceNColorSpace extends ColorSpace {
+        private DummyDeviceNColorSpace(int numcomponents)
+        {
+            super(getRawColorSpaceType(numcomponents),numcomponents);
+        }
+
+		@Override
+		public float[] toRGB(float[] colorvalue)
+        {
+			try {
+				return PDDeviceN.this.toRGB(colorvalue);
+			}
+			catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+
+		@Override
+		public float[] fromRGB(float[] rgbvalue)
+        {
+            throw new IllegalStateException();
+		}
+
+		@Override
+		public float[] toCIEXYZ(float[] colorvalue)
+        {
+			throw new IllegalStateException();
+		}
+
+		@Override
+		public float[] fromCIEXYZ(float[] colorvalue)
+        {
+			throw new IllegalStateException();
+		}
     }
 
     /**

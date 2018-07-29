@@ -380,6 +380,16 @@ public final class PDICCBased extends PDCIEBasedColorSpace
     }
 
     @Override
+    public BufferedImage toRawImage(WritableRaster raster) throws IOException
+    {
+        if(awtColorSpace == null)
+        {
+            return alternateColorSpace.toRawImage(raster);
+        }
+        return toRawImage(raster, awtColorSpace);
+    }
+
+    @Override
     public int getNumberOfComponents()
     {
         if (numberOfComponents < 0)

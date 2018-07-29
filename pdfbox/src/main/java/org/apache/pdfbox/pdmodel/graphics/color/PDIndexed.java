@@ -17,10 +17,8 @@
 package org.apache.pdfbox.pdmodel.graphics.color;
 
 import java.awt.Point;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
-import java.awt.image.Raster;
-import java.awt.image.WritableRaster;
+import java.awt.color.ColorSpace;
+import java.awt.image.*;
 import java.io.IOException;
 
 import org.apache.pdfbox.cos.COSArray;
@@ -208,6 +206,14 @@ public final class PDIndexed extends PDSpecialColorSpace
         }
 
         return rgbImage;
+    }
+
+    @Override
+    public BufferedImage toRawImage(WritableRaster raster)
+    {
+         // We must convert the index raster into a matching raster
+
+        return null;
     }
 
     /**
