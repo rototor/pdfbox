@@ -570,6 +570,7 @@ public final class LosslessFactory
                     outputStream.close();
                     pdProfile.getPDStream().getCOSObject().setInt(COSName.N,
                             srcCspace.getNumComponents());
+					pdColorSpace = pdProfile;
                 }
             }
 
