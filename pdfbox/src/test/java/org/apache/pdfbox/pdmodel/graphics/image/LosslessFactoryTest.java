@@ -430,7 +430,7 @@ public class LosslessFactoryTest extends TestCase
         BufferedImage imageCMYK = op.filter(image, null);
 
         PDImageXObject ximage = LosslessFactory.createFromImage(document, imageCMYK);
-        validate(ximage, 8, imageCMYK.getWidth(), imageCMYK.getHeight(), "png", PDDeviceCMYK.INSTANCE.getName());
+        validate(ximage, 8, imageCMYK.getWidth(), imageCMYK.getHeight(), "png", "ICCBased");
 
         doWritePDF(document, ximage, testResultsDir, "cmyk.pdf");
 
