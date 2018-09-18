@@ -29,19 +29,6 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
-import javax.imageio.stream.MemoryCacheImageOutputStream;
-import org.apache.pdfbox.cos.COSDictionary;
-import org.apache.pdfbox.cos.COSInteger;
-import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.filter.Filter;
-import org.apache.pdfbox.filter.FilterFactory;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.graphics.color.PDColorSpace;
-import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceCMYK;
-import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceColorSpace;
-import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceGray;
-import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
-import org.apache.pdfbox.pdmodel.graphics.color.PDICCBased;
 
 /**
  * Factory for creating a PDImageXObject containing a lossless compressed image.
@@ -570,6 +557,8 @@ public final class LosslessFactory
                     outputStream.close();
                     pdProfile.getPDStream().getCOSObject().setInt(COSName.N,
                             srcCspace.getNumComponents());
+                    pdProfile.getPDStream().getCOSObject().setItem(COSName.ALTERNATE,
+                            srcCspace.getType() == ColorSpace.TYPE_CMYK ? COSName.DEVICECMYK : COSName.DEVICERGB);
 					pdColorSpace = pdProfile;
                 }
             }
