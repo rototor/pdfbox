@@ -349,6 +349,13 @@ public final class PDImageXObject extends PDXObject implements PDImage
         {
             return JPEGFactory.createFromByteArray(document, byteArray);
         }
+        if(fileType.equals(FileType.PNG)) 
+        {
+            // Try to directly convert the image without recoding it.
+			PDImageXObject image = PNGConverter.convertPNGImage(document, byteArray);
+			if (image != null)
+				return image;
+        }
         if (fileType.equals(FileType.TIFF))
         {
             try
