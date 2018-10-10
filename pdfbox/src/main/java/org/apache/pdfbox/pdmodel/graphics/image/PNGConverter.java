@@ -20,11 +20,11 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.pdfbox.cos.*;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.graphics.color.PDColorSpace;
-import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceGray;
-import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
-import org.apache.pdfbox.pdmodel.graphics.color.PDICCBased;
+import org.apache.pdfbox.pdmodel.graphics.color.*;
 
+import java.awt.color.ColorSpace;
+import java.awt.color.ICC_Profile;
+import java.awt.color.ICC_ProfileRGB;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -130,10 +130,10 @@ final class PNGConverter
 		{
 		case 0:
 			// Grayscale
-			return buildImageObject(doc, PDDeviceGray.INSTANCE, state);
+			return buildImageObject(doc, true, state);
 		case 2:
 		    // Truecolor
-			return buildImageObject(doc, PDDeviceRGB.INSTANCE, state);
+			return buildImageObject(doc, false, state);
 		case 3:
 			// Indexed image
 			return buildIndexImage(doc, state);
@@ -169,7 +169,7 @@ final class PNGConverter
 			return null;
 		}
 		
-		PDImageXObject image = buildImageObject(doc, PDDeviceRGB.INSTANCE, state);
+		PDImageXObject image = buildImageObject(doc, false, state);
 		if (image == null)
 		{
 			return null;
@@ -180,17 +180,24 @@ final class PNGConverter
 		{
 			// Yes, we need to duplicate the COSStream  here, don't know how to share
 			// that between streams
-			PDImageXObject smask = buildImageObject(doc, PDDeviceGray.INSTANCE, state);
+			PDImageXObject smask = buildImageObject(doc, true, state);
 			image.getCOSObject().setItem(COSName.SMASK, smask);
 		}
 		
 		return image;
 	}
 
+	private static float readPNGFloat(byte[] bytes, int offset)
+	{
+		int v = readInt(bytes,offset);
+		return v / 100000f;
+	}
+
 	/**
 	 * Build the base image object from the IDATs and profile information
 	 */
-	private static PDImageXObject buildImageObject(PDDocument document,  PDColorSpace colorSpace, 
+	@SuppressWarnings("Duplicates")
+	private static PDImageXObject buildImageObject(PDDocument document,  boolean isGrayScale,
 			PNGConverterState state) throws IOException
 	{
 		InputStream encodedByteStream;
@@ -211,9 +218,39 @@ final class PNGConverter
 			encodedByteStream = new ByteArrayInputStream(baos.toByteArray());
 		}
 		
+		PDColorSpace colorSpace = isGrayScale ? PDDeviceGray.INSTANCE : PDDeviceRGB.INSTANCE;
+		
 		PDImageXObject imageXObject = new PDImageXObject(document, encodedByteStream,
 				COSName.FLATE_DECODE, state.width,
 				state.height, state.bitsPerComponent, colorSpace);
+
+		COSDictionary decodeParms = new COSDictionary();
+		decodeParms.setItem(COSName.BITS_PER_COMPONENT, COSInteger.get(state.bitsPerComponent));
+		decodeParms.setItem(COSName.PREDICTOR, COSInteger.get(15));
+		decodeParms.setItem(COSName.COLUMNS, COSInteger.get(state.width));
+		decodeParms.setItem(COSName.COLORS, COSInteger.get(colorSpace.getNumberOfComponents()));
+		imageXObject.getCOSObject().setItem(COSName.DECODE_PARMS, decodeParms);	
+		
+		float gamma = 1f;
+		if (state.gAMA != null) 
+		{
+			if (state.gAMA.length != 4) 
+			{
+			    LOG.error("Invalid gAMA chunk length " + state.gAMA.length);
+				return null;
+			}
+			gamma = readPNGFloat(state.gAMA.bytes, state.gAMA.start);
+		}
+
+		if (isGrayScale && gamma != 1f)
+		{
+			PDCalGray gray = new PDCalGray();
+			// CIE 1931 XYZ space with the CCIR XA/11–recommended D65 white point
+			gray.setWhitePoint(new PDTristimulus(new float[] { 0.9505f, 1.0000f, 1.0890f }));
+			gray.setGamma(gamma);
+			imageXObject.setColorSpace(gray);
+		}
+
 		
 		if (state.sRGB != null)
 		{
@@ -225,16 +262,73 @@ final class PNGConverter
 
 			// Store the specified rendering intent
 			imageXObject.getCOSObject().setItem(COSName.INTENT, COSInteger.get(state.sRGB.bytes[state.sRGB.start]));
+		    gamma = 2.2f;
 		}
-		
-		COSDictionary decodeParms = new COSDictionary();
-		decodeParms.setItem(COSName.BITS_PER_COMPONENT, COSInteger.get(state.bitsPerComponent));
-		decodeParms.setItem(COSName.PREDICTOR, COSInteger.get(15));
-		decodeParms.setItem(COSName.COLUMNS, COSInteger.get(state.width));
-		decodeParms.setItem(COSName.COLORS, COSInteger.get(colorSpace.getNumberOfComponents()));
-		imageXObject.getCOSObject().setItem(COSName.DECODE_PARMS, decodeParms);	
-		
-		if (state.iCCP != null) 
+
+		if (state.cHRM != null && state.sRGB == null && state.iCCP == null)
+		{
+			if (state.cHRM.length != 32)
+			{
+				LOG.error("Invalid cHRM chunk length " + state.cHRM.length);
+				return null;
+			}
+			float xW = readPNGFloat(state.cHRM.bytes, state.cHRM.start);
+			float yW = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 4);
+			float xR = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 8);
+			float yR = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 12);
+			float xG = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 16);
+			float yG = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 20);
+			float xB = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 24);
+			float yB = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 28);
+
+			// We need to do a chroma transform
+            // See PDFSpec 1.8 8.6.5.3 CalRGB Colour Spaces for the formula's
+			float R = 1f;
+			float G = 1f;
+			float B = 1f;
+			float z = yW * ((xG - xB) * yR - (xR - xB) * yG + (xR - xG) * yB);
+			float YA = yR / R * ((xG - xB) * yW - (xW - xB) * yG + (xW - xG) * yB) / z;
+			float XA = YA * xR / yR;
+			float ZA = YA * (((1 - xR) / yR) - 1f);
+			float YB = -(yG / G) * ((xR - xB) * yW - (xW - xB) * yR + (xW - xR) * yB) / z;
+			float XB = YB * xG / yG;
+			float ZB = YB * (((1 - xG) / yG) - 1);
+			float YC = YB / B * ((xR - xG) * yW - (xW - xG) * yR + (xW - xR) * yG) / z;
+			float XC = YC * (xB / yB);
+			float ZC = YC * (((1 - xB) / yB) - 1);
+
+			COSArray matrix = new COSArray();
+			matrix.add(new COSFloat(XA));
+			matrix.add(new COSFloat(YA));
+			matrix.add(new COSFloat(ZA));
+			matrix.add(new COSFloat(XB));
+			matrix.add(new COSFloat(YB));
+			matrix.add(new COSFloat(ZB));
+			matrix.add(new COSFloat(XC));
+			matrix.add(new COSFloat(YC));
+			matrix.add(new COSFloat(ZC));
+
+			float XW = XA * R + XB * G + XC * B;
+			float YW = YA * R + YB * G + YC * B;
+			float ZW = ZA * R + ZB * G + ZC * B;
+			COSArray whitepoint = new COSArray();
+			whitepoint.add(new COSFloat(XW));
+			whitepoint.add(new COSFloat(YW));
+			whitepoint.add(new COSFloat(ZW));
+
+			COSArray gammaArray = new COSArray();
+			gammaArray.add(new COSFloat(gamma));
+			gammaArray.add(new COSFloat(gamma));
+			gammaArray.add(new COSFloat(gamma));
+
+			PDCalRGB calRGB = new PDCalRGB();
+			calRGB.setWhitePoint(new PDTristimulus(whitepoint));
+			calRGB.setMatrix(matrix);
+			calRGB.setGamma(new PDGamma(gammaArray));
+		}
+
+		// If possible we prefer a ICCBased color profile, just because its way faster to decode ...
+		if (state.iCCP != null || state.sRGB != null || (isGrayScale && state.gAMA == null)) 
 		{
 		    // We have got a color profile, which we must attach
 			PDICCBased profile = new PDICCBased(document);
@@ -244,11 +338,19 @@ final class PNGConverter
 			cosStream.setInt(COSName.N, colorSpace.getNumberOfComponents());
 			cosStream.setItem(COSName.ALTERNATE,
 					colorSpace.getNumberOfComponents() == 1 ? COSName.DEVICEGRAY : COSName.DEVICERGB);
-			try
-			{
-				rawOutputStream.write(state.iCCP.bytes, state.iCCP.start, state.iCCP.length);
+			try {
+				if (state.iCCP != null) 
+				{
+					rawOutputStream.write(state.iCCP.bytes, state.iCCP.start, state.iCCP.length);
+				} 
+				else 
+				{
+					ICC_Profile rgbProfile = ICC_Profile
+							.getInstance(isGrayScale ? ColorSpace.CS_GRAY : ColorSpace.CS_sRGB);
+					rawOutputStream.write(rgbProfile.getData());
+				}
 			}
-			finally 
+			finally
 			{
 				rawOutputStream.close();
 			}
@@ -296,12 +398,17 @@ final class PNGConverter
 			LOG.error("Invalid sRGB chunk.");
 			return false;
 		}
-		
-		if ((state.hadGama | state.hadChroma) && state.sRGB == null && state.iCCP == null)
+		if (!checkChunkSane(state.cHRM))
 		{
-			LOG.debug("We only have gama and chroma curves, but no sRGB or ICC info. Can't convert.");
+			LOG.error("Invalid cHRM chunk.");
 			return false;
 		}
+		if (!checkChunkSane(state.gAMA))
+		{
+			LOG.error("Invalid gAMA chunk.");
+			return false;
+		}
+		
 		
 		// Check the IDATs
 		if (state.IDATs.size() == 0)
@@ -378,8 +485,8 @@ final class PNGConverter
 		Chunk iCCP;
 		Chunk tRNS;
 		Chunk sRGB;
-		boolean hadGama;
-		boolean hadChroma;
+		Chunk gAMA;
+		Chunk cHRM;
 		
 		// Parsed header fields
 		int width; 
@@ -494,12 +601,15 @@ final class PNGConverter
 			    state.tRNS = chunk;
 			    break;
 			case CHUNK_gAMA:
-				state.hadGama = true;
+				// Gama
+				state.gAMA = chunk;
 				break;
 			case CHUNK_cHRM:
-				state.hadChroma = true;
+				// Chroma
+				state.cHRM = chunk;
 				break;
 			case CHUNK_iCCP:
+				// ICC Profile
 				state.iCCP = chunk;
 				break;
 			case CHUNK_sBIT:

@@ -63,8 +63,8 @@ public class PNGConverterTest
     public void testImageConversion() throws IOException
     {
         checkImageConvert("png.png");
-        checkImageConvertFail("png_gray_with_gama.png");
         checkImageConvert("png_gray.png");
+        checkImageConvert("png_gray_with_gama.png");
     }
 
     private void checkImageConvertFail(String name) throws IOException
@@ -83,7 +83,7 @@ public class PNGConverterTest
 		PDImageXObject pdImageXObject = PNGConverter.convertPNGImage(doc, imageBytes);
 		assertNotNull(pdImageXObject);
 		BufferedImage image = pdImageXObject.getImage();
-		checkIdent(image, ImageIO.read(new ByteArrayInputStream(imageBytes)));
+		checkIdent(ImageIO.read(new ByteArrayInputStream(imageBytes)), image);
 		doc.close();
     }
 

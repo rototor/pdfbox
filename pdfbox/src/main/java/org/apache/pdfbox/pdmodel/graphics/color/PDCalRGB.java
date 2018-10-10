@@ -176,6 +176,15 @@ public class PDCalRGB extends PDCIEDictionaryBasedColorSpace
         {
             matrixArray = matrix.toCOSArray();
         }
+        setMatrix(matrixArray);
+    }
+
+    /**
+     * Sets the interpretation matrix
+     * @param matrixArray the new matrix with 9 components or null
+     */
+    public final void setMatrix(COSArray matrixArray)
+    {
         dictionary.setItem(COSName.MATRIX, matrixArray);
     }
 }
