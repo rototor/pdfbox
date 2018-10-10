@@ -294,6 +294,7 @@ public final class COSName extends COSBase implements Comparable<COSName>
     public static final COSName INDEXED = new COSName("Indexed");
     public static final COSName INFO = new COSName("Info");
     public static final COSName INKLIST = new COSName("InkList");
+    public static final COSName INTENT = new COSName("Intent");
     public static final COSName INTERPOLATE = new COSName("Interpolate");
     public static final COSName IT = new COSName("IT");
     public static final COSName ITALIC_ANGLE = new COSName("ItalicAngle");

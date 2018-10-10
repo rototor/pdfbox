@@ -47,7 +47,6 @@ final class PNGConverter
 	private static final Log LOG = LogFactory.getLog(PNGConverter.class);
 	private PNGConverter()
 	{
-		
 	}
 
 	/**
@@ -97,9 +96,9 @@ final class PNGConverter
 		int filterMethod = ihdr.bytes[ihdrStart + 11] & 0xFF;
 		int interlaceMethod = ihdr.bytes[ihdrStart + 12] & 0xFF;
 		
-		if (bitDepth != 8 && bitDepth != 16) 
+		if (bitDepth != 1 && bitDepth != 2 && bitDepth != 4 && bitDepth != 8 && bitDepth != 16 )
 		{
-			LOG.debug(String.format("Can't handle a bit depth of %d yet.", bitDepth));
+			LOG.error(String.format("Invalid bit depth %d.", bitDepth));
 			return null;
 		}
 		if (width <= 0 || height <= 0) 
@@ -158,13 +157,23 @@ final class PNGConverter
 	private static PDImageXObject buildIndexImage(PDDocument doc, PNGConverterState state)
 			throws IOException
 	{
-		if (state.bitsPerComponent != 8)
+		if (state.PLTE == null)
 		{
-			LOG.debug(String.format("Can only convert indexed images with bit depth 8, not %d.", 
+			LOG.error("Indexed image without PLTE chunk.");
+			return null;
+		}
+		if (state.bitsPerComponent > 8)
+		{
+			LOG.debug(String.format("Can only convert indexed images with bit depth <= 8, not %d.",
 					state.bitsPerComponent));
 			return null;
 		}
+		
 		PDImageXObject image = buildImageObject(doc, PDDeviceRGB.INSTANCE, state);
+		if (image == null)
+		{
+			return null;
+		}
 
 		// Handle transparency
 		if (state.tRNS != null)
@@ -205,6 +214,18 @@ final class PNGConverter
 		PDImageXObject imageXObject = new PDImageXObject(document, encodedByteStream,
 				COSName.FLATE_DECODE, state.width,
 				state.height, state.bitsPerComponent, colorSpace);
+		
+		if (state.sRGB != null)
+		{
+		    if(state.sRGB.length != 1)
+			{
+				LOG.error(String.format("sRGB chunk has an invalid length of %d", state.sRGB.length));
+				return null;
+			}
+
+			// Store the specified rendering intent
+			imageXObject.getCOSObject().setItem(COSName.INTENT, COSInteger.get(state.sRGB.bytes[state.sRGB.start]));
+		}
 		
 		COSDictionary decodeParms = new COSDictionary();
 		decodeParms.setItem(COSName.BITS_PER_COMPONENT, COSInteger.get(state.bitsPerComponent));
@@ -270,6 +291,18 @@ final class PNGConverter
 			LOG.error("Invalid tRNS chunk.");
 			return false;
 		}
+		if (!checkChunkSane(state.sRGB))
+		{
+			LOG.error("Invalid sRGB chunk.");
+			return false;
+		}
+		
+		if ((state.hadGama | state.hadChroma) && state.sRGB == null && state.iCCP == null)
+		{
+			LOG.debug("We only have gama and chroma curves, but no sRGB or ICC info. Can't convert.");
+			return false;
+		}
+		
 		// Check the IDATs
 		if (state.IDATs.size() == 0)
 		{
@@ -344,6 +377,9 @@ final class PNGConverter
 		Chunk PLTE;
 		Chunk iCCP;
 		Chunk tRNS;
+		Chunk sRGB;
+		boolean hadGama;
+		boolean hadChroma;
 		
 		// Parsed header fields
 		int width; 
@@ -457,10 +493,12 @@ final class PNGConverter
 				}
 			    state.tRNS = chunk;
 			    break;
-			case CHUNK_cHRM:
 			case CHUNK_gAMA:
-				LOG.debug("Can't convert PNGs with cHRM or gAMA chunks.");
-				return null;
+				state.hadGama = true;
+				break;
+			case CHUNK_cHRM:
+				state.hadChroma = true;
+				break;
 			case CHUNK_iCCP:
 				state.iCCP = chunk;
 				break;
@@ -468,7 +506,8 @@ final class PNGConverter
 				LOG.debug("Can't convert PNGs with sBIT chunk.");
 				break;
 			case CHUNK_sRGB:
-				// A little bit redundant, as we assume sRGB by default anyway.
+				// We use the rendering intent from the chunk
+				state.sRGB = chunk;
 				break;
 			case CHUNK_tEXt:
 			case CHUNK_zTXt:
