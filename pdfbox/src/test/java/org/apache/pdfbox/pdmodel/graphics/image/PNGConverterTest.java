@@ -63,7 +63,6 @@ public class PNGConverterTest
     public void testImageConversion() throws IOException
     {
         checkImageConvert("png.png");
-
     }
 
     private void checkImageConvert(String name) throws IOException
@@ -100,7 +99,7 @@ public class PNGConverterTest
         assertFalse(PNGConverter.checkChunkSane(chunk));
         chunk.start = 4;
         assertFalse(PNGConverter.checkChunkSane(chunk));
-        chunk.crc = -209436096;
+        chunk.crc = -1729802258;
         assertTrue(PNGConverter.checkChunkSane(chunk));
         chunk.start = 6;
         assertFalse(PNGConverter.checkChunkSane(chunk));
@@ -109,7 +108,7 @@ public class PNGConverterTest
     @Test
     public void testCRCImpl(){
         byte[] b1 = "Hello World!".getBytes();
-        assertEquals(-233848198, PNGConverter.crc(b1,0,b1.length));
-		assertEquals(-355601718, PNGConverter.crc(b1, 2, b1.length - 4));
+        assertEquals(472456355, PNGConverter.crc(b1,0,b1.length));
+		assertEquals(-632335482, PNGConverter.crc(b1, 2, b1.length - 4));
     }
 }

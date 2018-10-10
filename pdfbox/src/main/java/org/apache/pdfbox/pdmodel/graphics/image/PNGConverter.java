@@ -88,13 +88,14 @@ final class PNGConverter
 			throws IOException
 	{
 		Chunk ihdr = state.IHDR;
-		int width = readInt(ihdr.bytes, ihdr.start);
-		int height = readInt(ihdr.bytes, ihdr.start + 4);
-		int bitDepth = ihdr.bytes[8] & 0xFF;
-		int colorType = ihdr.bytes[9] & 0xFF;
-		int compressionMethod = ihdr.bytes[10] & 0xFF;
-		int filterMethod = ihdr.bytes[11] & 0xFF;
-		int interlaceMethod = ihdr.bytes[12] & 0xFF;
+		int ihdrStart = ihdr.start;
+		int width = readInt(ihdr.bytes, ihdrStart);
+		int height = readInt(ihdr.bytes, ihdrStart + 4);
+		int bitDepth = ihdr.bytes[ihdrStart + 8] & 0xFF;
+		int colorType = ihdr.bytes[ihdrStart + 9] & 0xFF;
+		int compressionMethod = ihdr.bytes[ihdrStart + 10] & 0xFF;
+		int filterMethod = ihdr.bytes[ihdrStart + 11] & 0xFF;
+		int interlaceMethod = ihdr.bytes[ihdrStart + 12] & 0xFF;
 		
 		if (bitDepth != 8 && bitDepth != 16) 
 		{
@@ -492,13 +493,13 @@ final class PNGConverter
 				// We don't need the last image change time either
 				break;
 			default:
-				LOG.error(String.format("Unknown chunk type %08X", chunkType));
-				return null;
+				LOG.debug(String.format("Unknown chunk type %08X, skipping.", chunkType));
+				break;
 			}
 			ptr += chunkLength;
 
 			// Read the CRC
-			chunk.crc = readInt(imageData,ptr);
+			chunk.crc = readInt(imageData, ptr);
 			ptr += 4;
 		}
 		LOG.error("No IEND chunk found.");
@@ -530,11 +531,11 @@ final class PNGConverter
 			{
 				if ((c & 1) != 0)
 				{
-					c = 0xEDB88320 ^ (c >> 1);
+					c = 0xEDB88320 ^ (c >>> 1);
 				}
 				else
 				{
-					c = c >> 1;
+					c = c >>> 1;
 				}
 			}
 			CRC_TABLE[n] = c;
@@ -552,7 +553,7 @@ final class PNGConverter
 		int end = offset + len;
 		for (int n = offset; n < end; n++) 
 		{
-			c = CRC_TABLE[(c ^ buf[n]) & 0xff] ^ (c >> 8);
+			c = CRC_TABLE[(c ^ buf[n]) & 0xff] ^ (c >>> 8);
 		}
 		return c;
 	}
