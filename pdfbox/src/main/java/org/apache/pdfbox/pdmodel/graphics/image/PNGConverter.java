@@ -131,9 +131,19 @@ final class PNGConverter
 		{
 		case 0:
 			// Grayscale
+			if (state.tRNS != null)
+			{
+				LOG.debug("We can't convert grayscale images with a transparent color.");
+				return null;
+			}
 			return buildImageObject(doc, true, state);
 		case 2:
 		    // Truecolor
+			if (state.tRNS != null) 
+			{
+				LOG.debug("We can't convert truecolor images with a transparent color.");
+				return null;
+			}
 			return buildImageObject(doc, false, state);
 		case 3:
 			// Indexed image
@@ -158,12 +168,13 @@ final class PNGConverter
 	private static PDImageXObject buildIndexImage(PDDocument doc, PNGConverterState state)
 			throws IOException
 	{
-		if (state.PLTE == null)
+		Chunk plte = state.PLTE;
+		if (plte == null)
 		{
 			LOG.error("Indexed image without PLTE chunk.");
 			return null;
 		}
-		if (state.PLTE.length % 3 != 0) 
+		if (plte.length % 3 != 0) 
 		{
 			LOG.error("PLTE table corrupted, last (r,g,b) tuple is not complete.");
 			return null;
@@ -183,44 +194,62 @@ final class PNGConverter
 		}
 
 
-		COSArray indexedArray = new COSArray();
-		indexedArray.add(COSName.INDEXED);
-		indexedArray.add(image.getColorSpace());
-		((COSDictionary) image.getCOSObject().getItem(COSName.DECODE_PARMS)).setItem(COSName.COLORS, COSInteger.ONE);
-		
-		int highVal = (state.PLTE.length / 3) - 1;
+		int highVal = (plte.length / 3) - 1;
 		if (highVal > 255)
 		{
 			LOG.error(String.format("To much colors in PLTE, only 256 allowed, found %d colors.",highVal+1));
 			return null;
 		}
+
+		setupIndexedColorSpace(doc, plte, image, highVal, 0);
+
+		// Handle transparency
+		if (state.tRNS != null)
+		{
+			// Yes, we need to duplicate the COSStream here, don't know how to share
+			// that between streams
+			PDImageXObject smask = buildImageObject(doc, true, state);
+			if (smask == null)
+			{
+			    LOG.error("Error while creating SMASK from tRNS for image.");
+				return null;
+			}
+			smask.setColorSpace(PDDeviceGray.INSTANCE);
+			setupIndexedColorSpace(doc, state.tRNS, smask, state.tRNS.length, highVal + 1);
+			image.getCOSObject().setItem(COSName.SMASK, smask);
+		}
+		
+		return image;
+	}
+
+	private static void setupIndexedColorSpace(PDDocument doc, Chunk lookupTable, PDImageXObject image,
+			int highVal, int fillUpTillLength) throws IOException
+	{
+		COSArray indexedArray = new COSArray();
+		indexedArray.add(COSName.INDEXED);
+		indexedArray.add(image.getColorSpace());
+		((COSDictionary) image.getCOSObject().getItem(COSName.DECODE_PARMS)).setItem(COSName.COLORS, COSInteger.ONE);
+
 		indexedArray.add(COSInteger.get(highVal));
 
 		PDStream colorTable = new PDStream(doc);
 		OutputStream colorTableStream = colorTable.createOutputStream(COSName.FLATE_DECODE);
 		try
 		{
-			colorTableStream.write(state.PLTE.bytes, state.PLTE.start, state.PLTE.length);
+			colorTableStream.write(lookupTable.bytes, lookupTable.start, lookupTable.length);
+			for (int i = lookupTable.length; i <= fillUpTillLength; i++)
+			{
+				colorTableStream.write(0xFF);
+			}
 		}
 		finally
 		{
 			colorTableStream.close();
 		}
 		indexedArray.add(colorTable);
-		
+
 		PDIndexed indexed = new PDIndexed(indexedArray);
 		image.setColorSpace(indexed);
-
-		// Handle transparency
-		if (state.tRNS != null)
-		{
-			// Yes, we need to duplicate the COSStream  here, don't know how to share
-			// that between streams
-			PDImageXObject smask = buildImageObject(doc, true, state);
-			image.getCOSObject().setItem(COSName.SMASK, smask);
-		}
-		
-		return image;
 	}
 
 	private static float readPNGFloat(byte[] bytes, int offset)

@@ -84,6 +84,26 @@ public class PNGConverterTest
     }
 
     @Test
+    public void testImageConversionRGBIndexedAlpha() throws IOException
+    {
+        checkImageConvert("png_indexed_alpha.png");
+    }
+
+    @Test
+    public void testImageConversionRGBAlpha() throws IOException
+    {
+        // We can't handle Alpha RGB
+        checkImageConvertFail("png_alpha_rgb.png");
+    }
+
+    @Test
+    public void testImageConversionGrayAlpha() throws IOException
+    {
+        // We can't handle Alpha RGB
+        checkImageConvertFail("png_alpha_gray.png");
+    }
+
+    @Test
     public void testImageConversionGray() throws IOException
     {
         checkImageConvert("png_gray.png");
@@ -119,13 +139,13 @@ public class PNGConverterTest
 		byte[] imageBytes = IOUtils.toByteArray(PNGConverterTest.class.getResourceAsStream(name));
 		PDImageXObject pdImageXObject = PNGConverter.convertPNGImage(doc, imageBytes);
 		assertNotNull(pdImageXObject);
-		BufferedImage image = pdImageXObject.getImage();
         PDPage page = new PDPage();
         doc.addPage(page);
         PDPageContentStream contentStream = new PDPageContentStream(doc, page);
         contentStream.drawImage(pdImageXObject, 0, 0, pdImageXObject.getWidth(), pdImageXObject.getHeight());
         contentStream.close();
         doc.save(new File(parentDir, name + ".pdf"));
+        BufferedImage image = pdImageXObject.getImage();
         checkIdent(ImageIO.read(new ByteArrayInputStream(imageBytes)), image);
 		doc.close();
     }
