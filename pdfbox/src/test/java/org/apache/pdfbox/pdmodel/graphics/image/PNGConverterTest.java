@@ -72,6 +72,18 @@ public class PNGConverterTest
     }
 
     @Test
+    public void testImageConversionRGBGamma() throws IOException
+    {
+        checkImageConvert("png_rgb_gamma.png");
+    }
+
+    @Test
+    public void testImageConversionRGBIndexed() throws IOException
+    {
+        checkImageConvert("png_indexed.png");
+    }
+
+    @Test
     public void testImageConversionGray() throws IOException
     {
         checkImageConvert("png_gray.png");

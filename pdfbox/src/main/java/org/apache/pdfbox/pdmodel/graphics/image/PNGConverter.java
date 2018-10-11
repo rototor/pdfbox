@@ -239,7 +239,7 @@ final class PNGConverter
 			    LOG.error("Invalid gAMA chunk length " + state.gAMA.length);
 				return null;
 			}
-			gamma = readPNGFloat(state.gAMA.bytes, state.gAMA.start);
+			gamma = 1f/readPNGFloat(state.gAMA.bytes, state.gAMA.start);
 		}
 
 		if (isGrayScale && gamma != 1f)
