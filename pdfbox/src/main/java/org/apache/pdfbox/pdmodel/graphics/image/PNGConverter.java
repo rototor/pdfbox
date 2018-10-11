@@ -186,17 +186,18 @@ final class PNGConverter
 		COSArray indexedArray = new COSArray();
 		indexedArray.add(COSName.INDEXED);
 		indexedArray.add(image.getColorSpace());
+		((COSDictionary) image.getCOSObject().getItem(COSName.DECODE_PARMS)).setItem(COSName.COLORS, COSInteger.ONE);
+		
 		int highVal = (state.PLTE.length / 3) - 1;
 		if (highVal > 255)
 		{
 			LOG.error(String.format("To much colors in PLTE, only 256 allowed, found %d colors.",highVal+1));
 			return null;
 		}
-
 		indexedArray.add(COSInteger.get(highVal));
+
 		PDStream colorTable = new PDStream(doc);
 		OutputStream colorTableStream = colorTable.createOutputStream(COSName.FLATE_DECODE);
-		
 		try
 		{
 			colorTableStream.write(state.PLTE.bytes, state.PLTE.start, state.PLTE.length);
