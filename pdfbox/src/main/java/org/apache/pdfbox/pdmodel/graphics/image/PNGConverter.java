@@ -20,6 +20,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.pdfbox.cos.*;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.graphics.color.*;
 
 import java.awt.color.ColorSpace;
@@ -162,6 +163,11 @@ final class PNGConverter
 			LOG.error("Indexed image without PLTE chunk.");
 			return null;
 		}
+		if (state.PLTE.length % 3 != 0) 
+		{
+			LOG.error("PLTE table corrupted, last (r,g,b) tuple is not complete.");
+			return null;
+		}
 		if (state.bitsPerComponent > 8)
 		{
 			LOG.debug(String.format("Can only convert indexed images with bit depth <= 8, not %d.",
@@ -169,11 +175,40 @@ final class PNGConverter
 			return null;
 		}
 		
+		
 		PDImageXObject image = buildImageObject(doc, false, state);
 		if (image == null)
 		{
 			return null;
 		}
+
+
+		COSArray indexedArray = new COSArray();
+		indexedArray.add(COSName.INDEXED);
+		indexedArray.add(image.getColorSpace());
+		int highVal = (state.PLTE.length / 3) - 1;
+		if (highVal > 255)
+		{
+			LOG.error(String.format("To much colors in PLTE, only 256 allowed, found %d colors.",highVal+1));
+			return null;
+		}
+
+		indexedArray.add(COSInteger.get(highVal));
+		PDStream colorTable = new PDStream(doc);
+		OutputStream colorTableStream = colorTable.createOutputStream(COSName.FLATE_DECODE);
+		
+		try
+		{
+			colorTableStream.write(state.PLTE.bytes, state.PLTE.start, state.PLTE.length);
+		}
+		finally
+		{
+			colorTableStream.close();
+		}
+		indexedArray.add(colorTable);
+		
+		PDIndexed indexed = new PDIndexed(indexedArray);
+		image.setColorSpace(indexed);
 
 		// Handle transparency
 		if (state.tRNS != null)
