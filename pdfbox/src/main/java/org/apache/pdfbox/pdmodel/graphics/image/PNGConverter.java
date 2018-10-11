@@ -247,6 +247,7 @@ final class PNGConverter
 			PDCalGray gray = new PDCalGray();
 			// CIE 1931 XYZ space with the CCIR XA/11–recommended D65 white point
 			gray.setWhitePoint(new PDTristimulus(new float[] { 0.9505f, 1.0000f, 1.0890f }));
+			//gray.setWhitePoint(new PDTristimulus(new float[] { 1f,1f,1f }));
 			gray.setGamma(gamma);
 			imageXObject.setColorSpace(gray);
 		}

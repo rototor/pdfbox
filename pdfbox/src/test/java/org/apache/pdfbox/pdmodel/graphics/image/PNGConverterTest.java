@@ -1,12 +1,18 @@
 package org.apache.pdfbox.pdmodel.graphics.image;
 
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDStream;
+import org.junit.Before;
 import org.junit.Test;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 
 import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.checkIdent;
@@ -60,13 +66,32 @@ public class PNGConverterTest
     }
     
     @Test
-    public void testImageConversion() throws IOException
+    public void testImageConversionRGB() throws IOException
     {
         checkImageConvert("png.png");
+    }
+
+    @Test
+    public void testImageConversionGray() throws IOException
+    {
         checkImageConvert("png_gray.png");
+    }
+
+    @Test
+    public void testImageConversionGrayGamma() throws IOException
+    {
         checkImageConvert("png_gray_with_gama.png");
     }
 
+	private final File parentDir = new File("target/test/pngconvert");
+
+    @Before 
+	public void setup() 
+    {
+        //noinspection ResultOfMethodCallIgnored
+        parentDir.mkdirs();
+	}
+    
     private void checkImageConvertFail(String name) throws IOException
     {
 		PDDocument doc = new PDDocument();
@@ -83,7 +108,13 @@ public class PNGConverterTest
 		PDImageXObject pdImageXObject = PNGConverter.convertPNGImage(doc, imageBytes);
 		assertNotNull(pdImageXObject);
 		BufferedImage image = pdImageXObject.getImage();
-		checkIdent(ImageIO.read(new ByteArrayInputStream(imageBytes)), image);
+        PDPage page = new PDPage();
+        doc.addPage(page);
+        PDPageContentStream contentStream = new PDPageContentStream(doc, page);
+        contentStream.drawImage(pdImageXObject, 0, 0, pdImageXObject.getWidth(), pdImageXObject.getHeight());
+        contentStream.close();
+        doc.save(new File(parentDir, name + ".pdf"));
+        checkIdent(ImageIO.read(new ByteArrayInputStream(imageBytes)), image);
 		doc.close();
     }
 
