@@ -16,19 +16,18 @@
  */
 package org.apache.pdfbox.pdmodel.graphics.image;
 
+import java.awt.color.ColorSpace;
+import java.awt.color.ICC_Profile;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.pdfbox.cos.*;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.graphics.color.*;
-
-import java.awt.color.ColorSpace;
-import java.awt.color.ICC_Profile;
-import java.awt.color.ICC_ProfileRGB;
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * This factory tries to encode a PNG given as byte array into a PDImageXObject
@@ -215,7 +214,7 @@ final class PNGConverter
 				return null;
 			}
 			smask.setColorSpace(PDDeviceGray.INSTANCE);
-			setupIndexedColorSpace(doc, state.tRNS, smask, state.tRNS.length, highVal + 1);
+			setupIndexedColorSpace(doc, state.tRNS, smask, highVal, highVal + 1);
 			image.getCOSObject().setItem(COSName.SMASK, smask);
 		}
 		
@@ -237,7 +236,7 @@ final class PNGConverter
 		try
 		{
 			colorTableStream.write(lookupTable.bytes, lookupTable.start, lookupTable.length);
-			for (int i = lookupTable.length; i <= fillUpTillLength; i++)
+			for (int i = lookupTable.length; i < fillUpTillLength; i++)
 			{
 				colorTableStream.write(0xFF);
 			}

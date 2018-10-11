@@ -10,6 +10,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -142,6 +143,10 @@ public class PNGConverterTest
         PDPage page = new PDPage();
         doc.addPage(page);
         PDPageContentStream contentStream = new PDPageContentStream(doc, page);
+        contentStream.setNonStrokingColor(Color.PINK);
+        contentStream.addRect(0, 0, page.getCropBox().getWidth(), page.getCropBox().getHeight());
+        contentStream.fill();
+
         contentStream.drawImage(pdImageXObject, 0, 0, pdImageXObject.getWidth(), pdImageXObject.getHeight());
         contentStream.close();
         doc.save(new File(parentDir, name + ".pdf"));
