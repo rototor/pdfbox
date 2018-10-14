@@ -167,8 +167,12 @@ public class PDCalRGB extends PDCIEDictionaryBasedColorSpace
     /**
      * Sets the linear interpretation matrix.
      * Passing in null will clear the matrix.
+     *
+     * DO NOT USE, will not store all matrix values.
+     *
      * @param matrix the new linear interpretation matrix, or null
      */
+    @Deprecated
     public final void setMatrix(Matrix matrix)
     {
         COSArray matrixArray = null;
