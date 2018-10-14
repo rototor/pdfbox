@@ -79,6 +79,12 @@ public class PNGConverterTest
     }
 
     @Test
+    public void testImageConversionRGB16BitICC() throws IOException
+    {
+        checkImageConvert("png_rgb_romm_16bit.png");
+    }
+
+    @Test
     public void testImageConversionRGBIndexed() throws IOException
     {
         checkImageConvert("png_indexed.png");
@@ -87,7 +93,7 @@ public class PNGConverterTest
     @Test
     public void testImageConversionRGBIndexedAlpha() throws IOException
     {
-        checkImageConvert("png_indexed_alpha.png");
+        checkImageConvertFail("png_indexed_alpha.png");
     }
 
     @Test

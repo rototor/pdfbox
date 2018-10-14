@@ -121,7 +121,12 @@ final class PNGConverter
 			LOG.debug(String.format("Can't handle interlace method %d.", interlaceMethod));
 			return null;
 		}
-		
+		if (state.tRNS != null)
+		{
+			LOG.debug("Can't images with transparent colors.");
+			return null;
+		}
+
 		state.width = width;
 		state.height = height;
 		state.bitsPerComponent = bitDepth;
@@ -130,19 +135,9 @@ final class PNGConverter
 		{
 		case 0:
 			// Grayscale
-			if (state.tRNS != null)
-			{
-				LOG.debug("We can't convert grayscale images with a transparent color.");
-				return null;
-			}
 			return buildImageObject(doc, true, state);
 		case 2:
 		    // Truecolor
-			if (state.tRNS != null) 
-			{
-				LOG.debug("We can't convert truecolor images with a transparent color.");
-				return null;
-			}
 			return buildImageObject(doc, false, state);
 		case 3:
 			// Indexed image
@@ -196,33 +191,17 @@ final class PNGConverter
 		int highVal = (plte.length / 3) - 1;
 		if (highVal > 255)
 		{
-			LOG.error(String.format("To much colors in PLTE, only 256 allowed, found %d colors.",highVal+1));
+			LOG.error(String.format("To much colors in PLTE, only 256 allowed, found %d colors.", highVal + 1));
 			return null;
 		}
 
-		setupIndexedColorSpace(doc, plte, image, highVal, 0);
+		setupIndexedColorSpace(doc, plte, image, highVal);
 
-		// Handle transparency
-		if (state.tRNS != null)
-		{
-			// Yes, we need to duplicate the COSStream here, don't know how to share
-			// that between streams
-			PDImageXObject smask = buildImageObject(doc, true, state);
-			if (smask == null)
-			{
-			    LOG.error("Error while creating SMASK from tRNS for image.");
-				return null;
-			}
-			smask.setColorSpace(PDDeviceGray.INSTANCE);
-			setupIndexedColorSpace(doc, state.tRNS, smask, highVal, highVal + 1);
-			image.getCOSObject().setItem(COSName.SMASK, smask);
-		}
-		
 		return image;
 	}
 
 	private static void setupIndexedColorSpace(PDDocument doc, Chunk lookupTable, PDImageXObject image,
-			int highVal, int fillUpTillLength) throws IOException
+			int highVal) throws IOException
 	{
 		COSArray indexedArray = new COSArray();
 		indexedArray.add(COSName.INDEXED);
@@ -236,10 +215,6 @@ final class PNGConverter
 		try
 		{
 			colorTableStream.write(lookupTable.bytes, lookupTable.start, lookupTable.length);
-			for (int i = lookupTable.length; i < fillUpTillLength; i++)
-			{
-				colorTableStream.write(0xFF);
-			}
 		}
 		finally
 		{
