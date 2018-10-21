@@ -75,7 +75,7 @@ public class PNGConverterTest
     @Test
     public void testImageConversionRGBGamma() throws IOException
     {
-        checkImageConvert("png_rgb_gamma.png");
+        checkImageConvertFail("png_rgb_gamma.png");
     }
 
     @Test
@@ -113,13 +113,13 @@ public class PNGConverterTest
     @Test
     public void testImageConversionGray() throws IOException
     {
-        checkImageConvert("png_gray.png");
+        checkImageConvertFail("png_gray.png");
     }
 
     @Test
     public void testImageConversionGrayGamma() throws IOException
     {
-        checkImageConvert("png_gray_with_gama.png");
+        checkImageConvertFail("png_gray_with_gama.png");
     }
 
 	private final File parentDir = new File("target/test/pngconvert");
@@ -176,7 +176,8 @@ public class PNGConverterTest
     }
 
     @Test
-    public void testChunkSane(){
+    public void testChunkSane()
+    {
         PNGConverter.Chunk chunk = new PNGConverter.Chunk();
         assertTrue(PNGConverter.checkChunkSane(null));
         chunk.bytes = "IHDRsomedummyvaluesDummyValuesAtEnd".getBytes();
@@ -192,9 +193,22 @@ public class PNGConverterTest
     }
     
     @Test
-    public void testCRCImpl(){
+    public void testCRCImpl()
+    {
         byte[] b1 = "Hello World!".getBytes();
         assertEquals(472456355, PNGConverter.crc(b1,0,b1.length));
 		assertEquals(-632335482, PNGConverter.crc(b1, 2, b1.length - 4));
+    }
+
+    @Test
+    public void testMapPNGRenderIntent()
+    {
+		assertEquals(COSName.PERCEPTUAL, PNGConverter.mapPNGRenderIntent(0));
+		assertEquals(COSName.RELATIVE_COLORIMETRIC, PNGConverter.mapPNGRenderIntent(1));
+		assertEquals(COSName.SATURATION, PNGConverter.mapPNGRenderIntent(2));
+		assertEquals(COSName.ABSOLUTE_COLORIMETRIC, PNGConverter.mapPNGRenderIntent(3));
+		assertNull(PNGConverter.mapPNGRenderIntent(-1));
+		assertNull(PNGConverter.mapPNGRenderIntent(4));
+
     }
 }

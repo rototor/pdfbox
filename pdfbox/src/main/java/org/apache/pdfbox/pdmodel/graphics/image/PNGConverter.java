@@ -135,10 +135,11 @@ final class PNGConverter
 		{
 		case 0:
 			// Grayscale
-			return buildImageObject(doc, true, state);
+			LOG.debug("Can't handel grayscale yet.");
+			return null;
 		case 2:
 		    // Truecolor
-			return buildImageObject(doc, false, state);
+			return buildImageObject(doc, state);
 		case 3:
 			// Indexed image
 			return buildIndexImage(doc, state);
@@ -181,7 +182,7 @@ final class PNGConverter
 		}
 		
 		
-		PDImageXObject image = buildImageObject(doc, false, state);
+		PDImageXObject image = buildImageObject(doc, state);
 		if (image == null)
 		{
 			return null;
@@ -226,18 +227,12 @@ final class PNGConverter
 		image.setColorSpace(indexed);
 	}
 
-	private static float readPNGFloat(byte[] bytes, int offset)
-	{
-		int v = readInt(bytes,offset);
-		return v / 100000f;
-	}
-
 	/**
 	 * Build the base image object from the IDATs and profile information
 	 */
 	@SuppressWarnings("Duplicates")
-	private static PDImageXObject buildImageObject(PDDocument document,  boolean isGrayScale,
-			PNGConverterState state) throws IOException
+	private static PDImageXObject buildImageObject(PDDocument document, PNGConverterState state)
+			throws IOException
 	{
 		InputStream encodedByteStream;
 		if (state.IDATs.size() == 1) 
@@ -249,7 +244,12 @@ final class PNGConverter
 		else 
 		{
 			// Special case, we must concat the IDATs first
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			int length = 0;
+			for(Chunk idat : state.IDATs)
+			{
+				length += idat.length;
+            }
+			ByteArrayOutputStream baos = new ByteArrayOutputStream(length);
 			for(Chunk idat : state.IDATs)
 			{
 				baos.write(idat.bytes, idat.start, idat.length);
@@ -257,7 +257,7 @@ final class PNGConverter
 			encodedByteStream = new ByteArrayInputStream(baos.toByteArray());
 		}
 		
-		PDColorSpace colorSpace = isGrayScale ? PDDeviceGray.INSTANCE : PDDeviceRGB.INSTANCE;
+		PDColorSpace colorSpace = PDDeviceRGB.INSTANCE;
 		
 		PDImageXObject imageXObject = new PDImageXObject(document, encodedByteStream,
 				COSName.FLATE_DECODE, state.width,
@@ -268,30 +268,23 @@ final class PNGConverter
 		decodeParms.setItem(COSName.PREDICTOR, COSInteger.get(15));
 		decodeParms.setItem(COSName.COLUMNS, COSInteger.get(state.width));
 		decodeParms.setItem(COSName.COLORS, COSInteger.get(colorSpace.getNumberOfComponents()));
-		imageXObject.getCOSObject().setItem(COSName.DECODE_PARMS, decodeParms);	
+		imageXObject.getCOSObject().setItem(COSName.DECODE_PARMS, decodeParms);
+
+		// We ignore gAMA and cHRM chunks if we have a ICC profile, as the ICC profile
+		// takes preference
+		boolean hasICCColorProfile = state.sRGB != null || state.iCCP != null;
 		
-		float gamma = 1f;
-		if (state.gAMA != null) 
+		if (state.gAMA != null && !hasICCColorProfile)
 		{
 			if (state.gAMA.length != 4) 
 			{
 			    LOG.error("Invalid gAMA chunk length " + state.gAMA.length);
 				return null;
 			}
-			gamma = 1f/readPNGFloat(state.gAMA.bytes, state.gAMA.start);
+			LOG.debug("We can't handle gamma yet.");
+			return null;
 		}
 
-		if (isGrayScale && gamma != 1f)
-		{
-			PDCalGray gray = new PDCalGray();
-			// CIE 1931 XYZ space with the CCIR XA/11–recommended D65 white point
-			gray.setWhitePoint(new PDTristimulus(new float[] { 0.9505f, 1.0000f, 1.0890f }));
-			//gray.setWhitePoint(new PDTristimulus(new float[] { 1f,1f,1f }));
-			gray.setGamma(gamma);
-			imageXObject.setColorSpace(gray);
-		}
-
-		
 		if (state.sRGB != null)
 		{
 		    if(state.sRGB.length != 1)
@@ -301,97 +294,24 @@ final class PNGConverter
 			}
 
 			// Store the specified rendering intent
-			COSName value;
-		    int renderIntent = state.sRGB.bytes[state.sRGB.start];
-			switch (renderIntent)
-			{
-			case 0:
-				value = COSName.PERCEPTUAL;
-				break;
-			case 1:
-				value = COSName.RELATIVE_COLORIMETRIC;
-				break;
-			case 2:
-				value = COSName.SATURATION;
-				break;
-			case 3:
-				value = COSName.ABSOLUTE_COLORIMETRIC;
-				break;
-			default:
-				value = null;
-				break;
-			}
-		    if(value != null)
-			{
-				imageXObject.getCOSObject().setItem(COSName.INTENT, value);
-			}
-		    gamma = 2.2f;
+			int renderIntent = state.sRGB.bytes[state.sRGB.start];
+			COSName value = mapPNGRenderIntent(renderIntent);
+			imageXObject.getCOSObject().setItem(COSName.INTENT, value);
 		}
 
-		if (state.cHRM != null && state.sRGB == null && state.iCCP == null)
+		if (state.cHRM != null && !hasICCColorProfile)
 		{
 			if (state.cHRM.length != 32)
 			{
 				LOG.error("Invalid cHRM chunk length " + state.cHRM.length);
 				return null;
 			}
-			float xW = readPNGFloat(state.cHRM.bytes, state.cHRM.start);
-			float yW = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 4);
-			float xR = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 8);
-			float yR = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 12);
-			float xG = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 16);
-			float yG = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 20);
-			float xB = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 24);
-			float yB = readPNGFloat(state.cHRM.bytes, state.cHRM.start + 28);
-
-			// We need to do a chroma transform
-            // See PDFSpec 1.8 8.6.5.3 CalRGB Colour Spaces for the formula's
-			float R = 1f;
-			float G = 1f;
-			float B = 1f;
-			float z = yW * ((xG - xB) * yR - (xR - xB) * yG + (xR - xG) * yB);
-			float YA = yR / R * ((xG - xB) * yW - (xW - xB) * yG + (xW - xG) * yB) / z;
-			float XA = YA * xR / yR;
-			float ZA = YA * (((1 - xR) / yR) - 1f);
-			float YB = -(yG / G) * ((xR - xB) * yW - (xW - xB) * yR + (xW - xR) * yB) / z;
-			float XB = YB * xG / yG;
-			float ZB = YB * (((1 - xG) / yG) - 1);
-			float YC = YB / B * ((xR - xG) * yW - (xW - xG) * yR + (xW - xR) * yG) / z;
-			float XC = YC * (xB / yB);
-			float ZC = YC * (((1 - xB) / yB) - 1);
-
-			COSArray matrix = new COSArray();
-			matrix.add(new COSFloat(XA));
-			matrix.add(new COSFloat(YA));
-			matrix.add(new COSFloat(ZA));
-			matrix.add(new COSFloat(XB));
-			matrix.add(new COSFloat(YB));
-			matrix.add(new COSFloat(ZB));
-			matrix.add(new COSFloat(XC));
-			matrix.add(new COSFloat(YC));
-			matrix.add(new COSFloat(ZC));
-
-			float XW = XA * R + XB * G + XC * B;
-			float YW = YA * R + YB * G + YC * B;
-			float ZW = ZA * R + ZB * G + ZC * B;
-			COSArray whitepoint = new COSArray();
-			whitepoint.add(new COSFloat(XW));
-			whitepoint.add(new COSFloat(YW));
-			whitepoint.add(new COSFloat(ZW));
-
-			COSArray gammaArray = new COSArray();
-			gammaArray.add(new COSFloat(gamma));
-			gammaArray.add(new COSFloat(gamma));
-			gammaArray.add(new COSFloat(gamma));
-
-			PDCalRGB calRGB = new PDCalRGB();
-			calRGB.setWhitePoint(new PDTristimulus(whitepoint));
-			calRGB.setMatrix(matrix);
-			calRGB.setGamma(new PDGamma(gammaArray));
+			LOG.debug("We can not handle cHRM chunks yet.");
+			return null;
 		}
 
 		// If possible we prefer a ICCBased color profile, just because its way faster to decode ...
-		if (state.iCCP != null || state.sRGB != null || (isGrayScale && state.gAMA == null)) 
+		if (state.iCCP != null || state.sRGB != null)
 		{
 		    // We have got a color profile, which we must attach
 			PDICCBased profile = new PDICCBased(document);
@@ -409,7 +329,7 @@ final class PNGConverter
 				else 
 				{
 					ICC_Profile rgbProfile = ICC_Profile
-							.getInstance(isGrayScale ? ColorSpace.CS_GRAY : ColorSpace.CS_sRGB);
+							.getInstance(ColorSpace.CS_sRGB);
 					rawOutputStream.write(rgbProfile.getData());
 				}
 			}
@@ -421,6 +341,36 @@ final class PNGConverter
 			imageXObject.setColorSpace(profile);
 		}
 		return imageXObject;
+	}
+
+	/**
+	 * Map the renderIntent int to a PDF render intent.
+	 * See also https://www.w3.org/TR/2003/REC-PNG-20031110/#11sRGB
+	 * @param renderIntent the PNG render intent
+	 * @return the matching PDF Render Intent or null	   
+	 */
+	static COSName mapPNGRenderIntent(int renderIntent)
+	{
+		COSName value;
+		switch (renderIntent)
+		{
+		case 0:
+			value = COSName.PERCEPTUAL;
+			break;
+		case 1:
+			value = COSName.RELATIVE_COLORIMETRIC;
+			break;
+		case 2:
+			value = COSName.SATURATION;
+			break;
+		case 3:
+			value = COSName.ABSOLUTE_COLORIMETRIC;
+			break;
+		default:
+			value = null;
+			break;
+		}
+		return value;
 	}
 
 	/**
@@ -471,7 +421,6 @@ final class PNGConverter
 			LOG.error("Invalid gAMA chunk.");
 			return false;
 		}
-		
 		
 		// Check the IDATs
 		if (state.IDATs.size() == 0)
@@ -761,7 +710,6 @@ final class PNGConverter
 	private static int updateCrc(byte[] buf, int offset, int len) 
 	{
 		int c = -1;
-
 		int end = offset + len;
 		for (int n = offset; n < end; n++) 
 		{
