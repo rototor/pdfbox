@@ -78,7 +78,7 @@ public class PNGConverterTest
     @Test
     public void testImageConversionRGBGamma() throws IOException
     {
-        checkImageConvertFail("png_rgb_gamma.png");
+        checkImageConvert("png_rgb_gamma.png");
     }
 
     @Test
