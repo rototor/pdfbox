@@ -301,7 +301,30 @@ final class PNGConverter
 			}
 
 			// Store the specified rendering intent
-			imageXObject.getCOSObject().setItem(COSName.INTENT, COSInteger.get(state.sRGB.bytes[state.sRGB.start]));
+			COSName value;
+		    int renderIntent = state.sRGB.bytes[state.sRGB.start];
+			switch (renderIntent)
+			{
+			case 0:
+				value = COSName.PERCEPTUAL;
+				break;
+			case 1:
+				value = COSName.RELATIVE_COLORIMETRIC;
+				break;
+			case 2:
+				value = COSName.SATURATION;
+				break;
+			case 3:
+				value = COSName.ABSOLUTE_COLORIMETRIC;
+				break;
+			default:
+				value = null;
+				break;
+			}
+		    if(value != null)
+			{
+				imageXObject.getCOSObject().setItem(COSName.INTENT, value);
+			}
 		    gamma = 2.2f;
 		}
 
