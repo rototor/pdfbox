@@ -1,23 +1,23 @@
 package org.apache.pdfbox.pdmodel.graphics.image;
 
-import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.io.IOUtils;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDStream;
-import org.junit.Before;
-import org.junit.Test;
+import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.checkIdent;
+import static org.junit.Assert.*;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 
-import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.checkIdent;
-import static org.junit.Assert.*;
+import javax.imageio.ImageIO;
+
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.io.IOUtils;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.junit.Before;
+import org.junit.Test;
 
 public class PNGConverterTest
 {

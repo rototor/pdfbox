@@ -752,7 +752,8 @@ public final class PDImageXObject extends PDXObject implements PDImage
     public void setColorSpace(PDColorSpace cs)
     {
         getCOSObject().setItem(COSName.COLORSPACE, cs != null ? cs.getCOSObject() : null);
-        colorSpace = cs;
+        colorSpace = null;
+        cachedImage = null;
     }
 
     @Override

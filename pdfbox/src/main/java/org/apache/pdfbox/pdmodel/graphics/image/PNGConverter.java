@@ -20,6 +20,7 @@ import java.awt.color.ColorSpace;
 import java.awt.color.ICC_Profile;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
@@ -316,28 +317,59 @@ final class PNGConverter
 		    // We have got a color profile, which we must attach
 			PDICCBased profile = new PDICCBased(document);
 			COSStream cosStream = profile.getPDStream().getCOSObject();
-			OutputStream rawOutputStream = cosStream
-					.createRawOutputStream();
 			cosStream.setInt(COSName.N, colorSpace.getNumberOfComponents());
 			cosStream.setItem(COSName.ALTERNATE,
 					colorSpace.getNumberOfComponents() == 1 ? COSName.DEVICEGRAY : COSName.DEVICERGB);
-			try {
-				if (state.iCCP != null) 
+			if (state.iCCP != null)
+			{
+			    // We need to skip over the name
+				int iccProfileDataStart = 0;
+				while (iccProfileDataStart < 80 && iccProfileDataStart < state.iCCP.length)
 				{
-					rawOutputStream.write(state.iCCP.bytes, state.iCCP.start, state.iCCP.length);
-				} 
-				else 
+					if(state.iCCP.bytes[state.iCCP.start + iccProfileDataStart] == 0)
+						break;
+					iccProfileDataStart++;
+				}
+				if (iccProfileDataStart >= state.iCCP.length)
 				{
-					ICC_Profile rgbProfile = ICC_Profile
-							.getInstance(ColorSpace.CS_sRGB);
-					rawOutputStream.write(rgbProfile.getData());
+					LOG.error("Invalid iCCP chunk, to few bytes");
+					return null;
+				}
+				byte compressionMethod = state.iCCP.bytes[state.iCCP.start + iccProfileDataStart];
+				if (compressionMethod != 0)
+				{
+					LOG.error(String.format("iCCP chunk: invalid compression method %d", compressionMethod));
+					return null;
+				}
+				// Skip over the compression method
+				iccProfileDataStart++;
+
+				OutputStream rawOutputStream = cosStream.createRawOutputStream();
+                try
+				{
+					rawOutputStream.write(state.iCCP.bytes, state.iCCP.start + iccProfileDataStart,
+							state.iCCP.length - iccProfileDataStart);
+                }
+                finally
+                {
+                    rawOutputStream.close();
+                }
+			}
+			else
+			{
+				// We tag the image with the sRGB profile
+				ICC_Profile rgbProfile = ICC_Profile.getInstance(ColorSpace.CS_sRGB);
+				OutputStream outputStream = cosStream.createRawOutputStream();
+				try
+				{
+					outputStream.write(rgbProfile.getData());
+				}
+				finally
+				{
+					outputStream.close();
 				}
 			}
-			finally
-			{
-				rawOutputStream.close();
-			}
-			
+
 			imageXObject.setColorSpace(profile);
 		}
 		return imageXObject;
@@ -484,6 +516,10 @@ final class PNGConverter
 		int crc;
 		int start;
 		int length;
+		byte[] getData()
+		{
+			return Arrays.copyOfRange(bytes, start, start+length);
+		}
 	}
 
 	/**
