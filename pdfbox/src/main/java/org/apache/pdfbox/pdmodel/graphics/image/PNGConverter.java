@@ -483,7 +483,7 @@ final class PNGConverter
 			return true;
 		}
 
-		if (chunk.start + chunk.length >= chunk.bytes.length)
+		if (chunk.start + chunk.length > chunk.bytes.length)
 		{
 			return false;
 		}
@@ -504,21 +504,43 @@ final class PNGConverter
 		return true;
 	}
 
-
-
 	/**
 	 * Holds the information about a chunks
 	 */
 	static final class Chunk
 	{
+	    /**
+	     * This field holds the whole byte array; In that it's redundant, as all
+		 * chunks will have the same byte array. But have this byte array per chunk
+		 * makes it easier to validate and pass around. And we won't have that many chunks, so
+		 * those 8 bytes for the pointer (on 64-bit systems) don't matter.
+	     */
 		byte[] bytes;
+		/**
+		 * The chunk type, see the CHUNK_??? constants.
+		 */
 		int chunkType;
+		/**
+		 * The crc of the chunk data, as stored in the PNG stream.
+		 */
 		int crc;
+		/**
+		 * The start index of the chunk data within bytes.
+		 */
 		int start;
+		/**
+		 * The length of the data within the byte array.
+		 */
 		int length;
+
+		/**
+		 * Get the data of this chunk. Used for internal debugging only.
+		 * 
+		 * @return a byte-array with only the data of the chunk
+		 */
 		byte[] getData()
 		{
-			return Arrays.copyOfRange(bytes, start, start+length);
+			return Arrays.copyOfRange(bytes, start, start + length);
 		}
 	}
 
@@ -528,7 +550,9 @@ final class PNGConverter
 	static final class PNGConverterState
 	{
 		List<Chunk> IDATs = new ArrayList<Chunk>();
+		@SuppressWarnings("SpellCheckingInspection") 
 		Chunk IHDR;
+		@SuppressWarnings("SpellCheckingInspection") 
 		Chunk PLTE;
 		Chunk iCCP;
 		Chunk tRNS;

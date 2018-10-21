@@ -8,6 +8,9 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 import javax.imageio.ImageIO;
 
@@ -168,11 +171,62 @@ public class PNGConverterTest
         PNGConverter.PNGConverterState state = new PNGConverter.PNGConverterState();
         assertFalse(PNGConverter.checkConverterState(state));
         
-        PNGConverter.Chunk chunk = new PNGConverter.Chunk();
-        chunk.bytes = new byte[0];
-        assertFalse(PNGConverter.checkChunkSane(chunk));
+        PNGConverter.Chunk invalidChunk = new PNGConverter.Chunk();
+        invalidChunk.bytes = new byte[0];
+        assertFalse(PNGConverter.checkChunkSane(invalidChunk));
+
+        // Valid Dummy Chunk
+        PNGConverter.Chunk validChunk = new PNGConverter.Chunk();
+        validChunk.bytes = new byte[16];
+        validChunk.start = 4;
+        validChunk.length = 8;
+        validChunk.crc = 2077607535;
+        assertTrue(PNGConverter.checkChunkSane(validChunk));
+
+        state.IHDR = invalidChunk;
+        assertFalse(PNGConverter.checkConverterState(state));
+        state.IDATs = Collections.singletonList(validChunk);
+        assertFalse(PNGConverter.checkConverterState(state));
+        state.IHDR = validChunk;
+        assertTrue(PNGConverter.checkConverterState(state));
+        state.IDATs = new ArrayList<PNGConverter.Chunk>();
+        assertFalse(PNGConverter.checkConverterState(state));
+        state.IDATs = Collections.singletonList(validChunk);
+        assertTrue(PNGConverter.checkConverterState(state));
+
+        state.PLTE = invalidChunk;
+        assertFalse(PNGConverter.checkConverterState(state));
+        state.PLTE = validChunk;
+        assertTrue(PNGConverter.checkConverterState(state));
+
+		state.cHRM = invalidChunk;
+		assertFalse(PNGConverter.checkConverterState(state));
+		state.cHRM = validChunk;
+        assertTrue(PNGConverter.checkConverterState(state));
         
-        // TODO
+		state.tRNS = invalidChunk;
+		assertFalse(PNGConverter.checkConverterState(state));
+		state.tRNS = validChunk;
+        assertTrue(PNGConverter.checkConverterState(state));
+
+        state.iCCP = invalidChunk;
+        assertFalse(PNGConverter.checkConverterState(state));
+        state.iCCP = validChunk;
+        assertTrue(PNGConverter.checkConverterState(state));
+        
+		state.sRGB = invalidChunk;
+		assertFalse(PNGConverter.checkConverterState(state));
+		state.sRGB = validChunk;
+        assertTrue(PNGConverter.checkConverterState(state));
+        
+		state.gAMA = invalidChunk;
+		assertFalse(PNGConverter.checkConverterState(state));
+		state.gAMA = validChunk;
+        assertTrue(PNGConverter.checkConverterState(state));
+
+        state.IDATs = Arrays.asList(validChunk,invalidChunk);
+        assertFalse(PNGConverter.checkConverterState(state));
+
     }
 
     @Test
@@ -183,12 +237,18 @@ public class PNGConverterTest
         chunk.bytes = "IHDRsomedummyvaluesDummyValuesAtEnd".getBytes();
         chunk.length = 19;
 		assertEquals(chunk.bytes.length, 35);
+		
+		assertEquals("IHDRsomedummyvalues", new String(chunk.getData()));
+
         assertFalse(PNGConverter.checkChunkSane(chunk));
         chunk.start = 4;
+        assertEquals("somedummyvaluesDumm", new String(chunk.getData()));
         assertFalse(PNGConverter.checkChunkSane(chunk));
         chunk.crc = -1729802258;
         assertTrue(PNGConverter.checkChunkSane(chunk));
         chunk.start = 6;
+        assertFalse(PNGConverter.checkChunkSane(chunk));
+        chunk.length = 60;
         assertFalse(PNGConverter.checkChunkSane(chunk));
     }
     
