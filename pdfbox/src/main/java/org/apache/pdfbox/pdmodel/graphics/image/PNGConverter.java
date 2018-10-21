@@ -224,11 +224,14 @@ final class PNGConverter
         byte[] bytes = new byte[length];
         byte[] transparencyTable = state.tRNS.getData();
         byte[] decodedIDAT = outputStream.toByteArray();
-        ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(
-                decodedIDAT));
+        ImageInputStream iis = new MemoryCacheImageInputStream(
+                new ByteArrayInputStream(decodedIDAT));
         try
         {
             int bitsPerComponent = state.bitsPerComponent;
+            int w = 0;
+            int neededBits = bitsPerComponent * state.width;
+            int bitPadding = neededBits % 8;
             for (int i = 0; i < bytes.length; i++)
             {
                 int idx = (int) iis.readBits(bitsPerComponent);
@@ -244,6 +247,12 @@ final class PNGConverter
                     v = (byte) 0xFF;
                 }
                 bytes[i] = v;
+                w++;
+                if (w == state.width)
+                {
+                    w = 0;
+                    iis.readBits(bitPadding);
+                }
             }
         }
         finally
