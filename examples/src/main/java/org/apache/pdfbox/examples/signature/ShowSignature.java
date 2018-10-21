@@ -25,16 +25,18 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.PublicKey;
+import java.security.Security;
 import java.security.SignatureException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateFactory;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
-
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSInputStream;
 import org.apache.pdfbox.cos.COSName;
@@ -44,8 +46,15 @@ import org.apache.pdfbox.cos.COSString;
 import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
+import org.apache.pdfbox.pdmodel.encryption.SecurityProvider;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.util.Hex;
+import org.bouncycastle.asn1.ASN1Object;
+import org.bouncycastle.asn1.cms.Attribute;
+import org.bouncycastle.asn1.cms.AttributeTable;
+import org.bouncycastle.asn1.cms.CMSAttributes;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x509.Time;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cms.CMSException;
@@ -53,6 +62,7 @@ import org.bouncycastle.cms.CMSProcessable;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.SignerInformation;
+import org.bouncycastle.cms.SignerInformationVerifier;
 import org.bouncycastle.cms.jcajce.JcaSimpleSignerInfoVerifierBuilder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.tsp.TSPException;
@@ -62,14 +72,16 @@ import org.bouncycastle.util.Store;
 import org.bouncycastle.util.StoreException;
 
 /**
- * This will read a document from the filesystem, decrypt it and do something with the signature.
+ * This will get the signature(s) from the document, do some verifications and
+ * show the signature(s) and the certificates. This is a complex topic - the
+ * code here is an example and not a production-ready solution.
  *
  * @author Ben Litchfield
  */
 public final class ShowSignature
 {
     private final SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
-    
+
     private ShowSignature()
     {
     }
@@ -90,6 +102,9 @@ public final class ShowSignature
                                                   NoSuchProviderException,
                                                   TSPException
     {
+        // register BouncyCastle provider, needed for "exotic" algorithms
+        Security.addProvider(SecurityProvider.getProvider());
+
         ShowSignature show = new ShowSignature();
         show.showSignature( args );
     }
@@ -201,7 +216,8 @@ public final class ShowSignature
                             Collection<? extends Certificate> certs = factory.generateCertificates(certStream);
                             System.out.println("certs=" + certs);
                             
-                            //TODO verify signature
+                            // to verify signature, see code at
+                            // https://stackoverflow.com/questions/43383859/
                         }
                         else if (subFilter.equals("ETSI.RFC3161"))
                         {
@@ -257,10 +273,11 @@ public final class ShowSignature
      * @throws CMSException
      * @throws StoreException
      * @throws OperatorCreationException
+     * @throws IOException
      */
     private void verifyPKCS7(byte[] byteArray, COSString contents, PDSignature sig)
             throws CMSException, CertificateException, StoreException, OperatorCreationException,
-                   NoSuchAlgorithmException, NoSuchProviderException
+                   NoSuchAlgorithmException, NoSuchProviderException, TSPException, IOException
     {
         // inspiration:
         // http://stackoverflow.com/a/26702631/535646
@@ -277,7 +294,74 @@ public final class ShowSignature
         X509CertificateHolder certificateHolder = matches.iterator().next();
         X509Certificate certFromSignedData = new JcaX509CertificateConverter().getCertificate(certificateHolder);
         System.out.println("certFromSignedData: " + certFromSignedData);
-        certFromSignedData.checkValidity(sig.getSignDate().getTime());
+
+        SigUtils.checkCertificateUsage(certFromSignedData);
+
+        if (signerInformation.getUnsignedAttributes() != null)
+        {            
+            AttributeTable unsignedAttributes = signerInformation.getUnsignedAttributes();
+
+            // https://stackoverflow.com/questions/1647759/how-to-validate-if-a-signed-jar-contains-a-timestamp
+            Attribute attribute = unsignedAttributes.get(
+                    PKCSObjectIdentifiers.id_aa_signatureTimeStampToken);
+            ASN1Object obj = (ASN1Object) attribute.getAttrValues().getObjectAt(0);
+            CMSSignedData signedTSTData = new CMSSignedData(obj.getEncoded());
+            TimeStampToken timeStampToken = new TimeStampToken(signedTSTData);
+
+            // https://stackoverflow.com/questions/42114742/
+            Collection<X509CertificateHolder> tstMatches =
+                    timeStampToken.getCertificates().getMatches(timeStampToken.getSID());
+            X509CertificateHolder holder = tstMatches.iterator().next();
+            X509Certificate tstCert = new JcaX509CertificateConverter().getCertificate(holder);
+            SignerInformationVerifier siv = new JcaSimpleSignerInfoVerifierBuilder().setProvider(SecurityProvider.getProvider()).build(tstCert);
+            timeStampToken.validate(siv);
+            System.out.println("TimeStampToken validated");
+        }
+
+        try
+        {
+            if (sig.getSignDate() != null)
+            {
+                certFromSignedData.checkValidity(sig.getSignDate().getTime());
+                System.out.println("Certificate valid at signing time");
+            }
+            else
+            {
+                System.err.println("Certificate cannot be verified without signing time");
+            }
+        }
+        catch (CertificateExpiredException ex)
+        {
+            System.err.println("Certificate expired at signing time");
+        }
+        catch (CertificateNotYetValidException ex)
+        {
+            System.err.println("Certificate not yet valid at signing time");
+        }
+
+        // usually not available
+        if (signerInformation.getSignedAttributes() != null)
+        {
+            // From SignedMailValidator.getSignatureTime()
+            Attribute signingTime = signerInformation.getSignedAttributes().get(CMSAttributes.signingTime);
+            if (signingTime != null)
+            {
+                Time timeInstance = Time.getInstance(signingTime.getAttrValues().getObjectAt(0));
+                try
+                {
+                    certFromSignedData.checkValidity(timeInstance.getDate());
+                    System.out.println("Certificate valid at signing time: " + timeInstance.getDate());
+                }
+                catch (CertificateExpiredException ex)
+                {
+                    System.err.println("Certificate expired at signing time");
+                }
+                catch (CertificateNotYetValidException ex)
+                {
+                    System.err.println("Certificate not yet valid at signing time");
+                }
+            }
+        }
 
         if (isSelfSigned(certFromSignedData))
         {
@@ -289,7 +373,8 @@ public final class ShowSignature
             // todo rest of chain
         }
 
-        if (signerInformation.verify(new JcaSimpleSignerInfoVerifierBuilder().build(certFromSignedData)))
+        if (signerInformation.verify(new JcaSimpleSignerInfoVerifierBuilder().
+                setProvider(SecurityProvider.getProvider()).build(certFromSignedData)))
         {
             System.out.println("Signature verified");
         }

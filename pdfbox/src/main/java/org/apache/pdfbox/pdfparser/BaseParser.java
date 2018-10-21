@@ -621,6 +621,7 @@ public abstract class BaseParser
      */
     protected COSArray parseCOSArray() throws IOException
     {
+        long startPosition = seqSource.getPosition();
         readExpectedChar('[');
         COSArray po = new COSArray();
         COSBase pbo;
@@ -632,10 +633,10 @@ public abstract class BaseParser
             if( pbo instanceof COSObject )
             {
                 // We have to check if the expected values are there or not PDFBOX-385
-                if (po.get(po.size()-1) instanceof COSInteger)
+                if (po.size() > 0 && po.get(po.size() - 1) instanceof COSInteger)
                 {
                     COSInteger genNumber = (COSInteger)po.remove( po.size() -1 );
-                    if (po.get(po.size()-1) instanceof COSInteger)
+                    if (po.size() > 0 && po.get(po.size() - 1) instanceof COSInteger)
                     {
                         COSInteger number = (COSInteger)po.remove( po.size() -1 );
                         COSObjectKey key = new COSObjectKey(number.longValue(), genNumber.intValue());
@@ -659,7 +660,8 @@ public abstract class BaseParser
             else
             {
                 //it could be a bad object in the array which is just skipped
-                LOG.warn("Corrupt object reference at offset " + seqSource.getPosition());
+                LOG.warn("Corrupt object reference at offset " +
+                        seqSource.getPosition() + ", start offset: " + startPosition);
 
                 // This could also be an "endobj" or "endstream" which means we can assume that
                 // the array has ended.
