@@ -26,6 +26,8 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.pdfbox.cos.*;
+import org.apache.pdfbox.filter.Filter;
+import org.apache.pdfbox.filter.FilterFactory;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.common.PDStream;
 import org.apache.pdfbox.pdmodel.graphics.color.*;
@@ -122,11 +124,6 @@ final class PNGConverter
 			LOG.debug(String.format("Can't handle interlace method %d.", interlaceMethod));
 			return null;
 		}
-		if (state.tRNS != null)
-		{
-			LOG.debug("Can't images with transparent colors.");
-			return null;
-		}
 
 		state.width = width;
 		state.height = height;
@@ -136,10 +133,15 @@ final class PNGConverter
 		{
 		case 0:
 			// Grayscale
-			LOG.debug("Can't handel grayscale yet.");
+			LOG.debug("Can't handle grayscale yet.");
 			return null;
 		case 2:
 		    // Truecolor
+			if (state.tRNS != null)
+			{
+				LOG.debug("Can't handle images with transparent colors.");
+				return null;
+			}
 			return buildImageObject(doc, state);
 		case 3:
 			// Indexed image
@@ -182,13 +184,11 @@ final class PNGConverter
 			return null;
 		}
 		
-		
 		PDImageXObject image = buildImageObject(doc, state);
 		if (image == null)
 		{
 			return null;
 		}
-
 
 		int highVal = (plte.length / 3) - 1;
 		if (highVal > 255)
@@ -199,7 +199,42 @@ final class PNGConverter
 
 		setupIndexedColorSpace(doc, plte, image, highVal);
 
+		if (state.tRNS != null)
+		{
+			image.getCOSObject().setItem(COSName.SMASK, buildTransparencyMaskFromIndexedData(doc, image, state));
+		}
+
 		return image;
+	}
+
+	private static PDImageXObject buildTransparencyMaskFromIndexedData(PDDocument doc, PDImageXObject image,
+			PNGConverterState state)
+			throws IOException
+	{
+		Filter flateDecode = FilterFactory.INSTANCE.getFilter(COSName.FLATE_DECODE);
+		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+		flateDecode.decode(getIDATInputStream(state), outputStream,
+				(COSDictionary) image.getCOSObject().getItem(COSName.DECODE_PARMS), 0);
+		byte[] bytes = outputStream.toByteArray();
+		byte[] transparencyTable = state.tRNS.getData();
+		for (int i = 0; i < bytes.length; i++) 
+		{
+			int idx = bytes[i] & 0xFF;
+			byte v;
+			if (idx < transparencyTable.length)
+			{
+				// Inside the table, use the transparency value
+				v = transparencyTable[idx];
+			}
+			else 
+			{
+			    // Outside the table -> transparent value is 0xFF here.
+				v = (byte)0xFF;
+			}
+			bytes[i] = v;
+		}
+		return LosslessFactory.prepareImageXObject(doc, bytes, image.getWidth(), image.getHeight(), 8,
+				PDDeviceGray.INSTANCE);
 	}
 
 	private static void setupIndexedColorSpace(PDDocument doc, Chunk lookupTable, PDImageXObject image,
@@ -231,33 +266,11 @@ final class PNGConverter
 	/**
 	 * Build the base image object from the IDATs and profile information
 	 */
-	@SuppressWarnings("Duplicates")
 	private static PDImageXObject buildImageObject(PDDocument document, PNGConverterState state)
 			throws IOException
 	{
-		InputStream encodedByteStream;
-		if (state.IDATs.size() == 1) 
-		{
-			// Common case, we just can use the byte array
-			Chunk idat = state.IDATs.get(0);
-			encodedByteStream = new ByteArrayInputStream(idat.bytes, idat.start, idat.length);
-		}
-		else 
-		{
-			// Special case, we must concat the IDATs first
-			int length = 0;
-			for(Chunk idat : state.IDATs)
-			{
-				length += idat.length;
-            }
-			ByteArrayOutputStream baos = new ByteArrayOutputStream(length);
-			for(Chunk idat : state.IDATs)
-			{
-				baos.write(idat.bytes, idat.start, idat.length);
-			}
-			encodedByteStream = new ByteArrayInputStream(baos.toByteArray());
-		}
-		
+		InputStream encodedByteStream = getIDATInputStream(state);
+
 		PDColorSpace colorSpace = PDDeviceRGB.INSTANCE;
 		
 		PDImageXObject imageXObject = new PDImageXObject(document, encodedByteStream,
@@ -282,8 +295,14 @@ final class PNGConverter
 			    LOG.error("Invalid gAMA chunk length " + state.gAMA.length);
 				return null;
 			}
-			LOG.debug("We can't handle gamma yet.");
-			return null;
+			float gamma = readPNGFloat(state.gAMA.bytes, state.gAMA.start);
+			// If the gamma is 2.2 for sRGB everything is fine. Otherwise bail out.
+			// The gamma is stored as 1 / gamma.
+			if (Math.abs(gamma - (1 / 2.2f)) > 0.00001)
+			{
+				LOG.debug(String.format("We can't handle gamma of %f yet.", gamma));
+				return null;
+			}
 		}
 
 		if (state.sRGB != null)
@@ -373,6 +392,63 @@ final class PNGConverter
 			imageXObject.setColorSpace(profile);
 		}
 		return imageXObject;
+	}
+
+	/**
+	 * Build an input stream for the IDAT data. May need to concat multiple IDAT chunks.
+	 *
+	 * @param state the converter state.
+	 * @return a input stream with the IDAT data.
+	 */
+	private static InputStream getIDATInputStream(PNGConverterState state)
+	{
+		MultipleInputStream inputStream = new MultipleInputStream();
+        for(Chunk idat : state.IDATs)
+        {
+			inputStream.inputStreams.add(new ByteArrayInputStream(idat.bytes, idat.start, idat.length));
+		}
+		return inputStream;
+	}
+
+	private static class MultipleInputStream extends InputStream {
+		List<InputStream> inputStreams = new ArrayList<InputStream>();
+		int currentStreamIdx;
+		InputStream currentStream;
+
+		private boolean ensureStream()
+		{
+			if (currentStream == null)
+			{
+				if (currentStreamIdx >= inputStreams.size())
+				{
+					return false;
+				}
+				currentStream = inputStreams.get(currentStreamIdx++);
+			}
+			return true;
+		}
+		
+		@Override
+		public int read() throws IOException
+		{
+			throw new IllegalStateException("Only bulk reads are expected!");
+		}
+
+		@Override 
+		public int read(byte[] b, int off, int len) throws IOException
+		{
+			if (!ensureStream())
+			{
+				return -1;
+			}
+			int ret = currentStream.read(b, off, len);
+			if (ret == -1) 
+		    {
+		    	currentStream = null;
+				return read(b, off, len);
+			}
+			return ret;
+		}
 	}
 
 	/**
@@ -534,7 +610,7 @@ final class PNGConverter
 		int length;
 
 		/**
-		 * Get the data of this chunk. Used for internal debugging only.
+		 * Get the data of this chunk as a byte array
 		 * 
 		 * @return a byte-array with only the data of the chunk
 		 */
@@ -573,6 +649,13 @@ final class PNGConverter
 		int b4 = (data[offset + 3] & 0xFF);
 		return b1 | b2 | b3 | b4;
 	}
+
+	private static float readPNGFloat(byte[] bytes, int offset)
+	{
+		int v = readInt(bytes,offset);
+		return v / 100000f;
+	}
+
 
 	// Chunk Type definitions. The bytes in the comments are the bytes in the spec.
 	private static final int CHUNK_IHDR = 0x49484452; // IHDR: 73 72 68 82

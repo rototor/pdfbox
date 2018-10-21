@@ -96,7 +96,7 @@ public class PNGConverterTest
     @Test
     public void testImageConversionRGBIndexedAlpha() throws IOException
     {
-        checkImageConvertFail("png_indexed_alpha.png");
+        checkImageConvert("png_indexed_alpha.png");
     }
 
     @Test
