@@ -33,7 +33,7 @@ import org.apache.pdfbox.util.Matrix;
  * AWT Paint for axial shading.
  *
  */
-public class AxialShadingPaint implements Paint
+public class AxialShadingPaint implements Paint, PDShadingPaint
 {
     private static final Log LOG = LogFactory.getLog(AxialShadingPaint.class);
 
@@ -71,5 +71,17 @@ public class AxialShadingPaint implements Paint
             LOG.error("An error occurred while painting", e);
             return new Color(0, 0, 0, 0).createContext(cm, deviceBounds, userBounds, xform, hints);
         }
+    }
+
+    @Override
+    public PDShadingType2 getShading()
+    {
+        return shading;
+    }
+
+    @Override
+    public Matrix getMatrix()
+    {
+        return matrix;
     }
 }

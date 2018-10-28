@@ -32,7 +32,7 @@ import org.apache.pdfbox.util.Matrix;
 /**
  * AWT Paint for Gouraud Triangle Lattice (Type 5) shading.
  */
-class Type5ShadingPaint implements Paint
+class Type5ShadingPaint implements Paint, PDShadingPaint
 {
     private static final Log LOG = LogFactory.getLog(Type5ShadingPaint.class);
 
@@ -70,5 +70,17 @@ class Type5ShadingPaint implements Paint
             LOG.error("An error occurred while painting", e);
             return new Color(0, 0, 0, 0).createContext(cm, deviceBounds, userBounds, xform, hints);
         }
+    }
+
+    @Override
+    public PDShadingType5 getShading()
+    {
+        return shading;
+    }
+
+    @Override
+    public Matrix getMatrix()
+    {
+        return matrix;
     }
 }

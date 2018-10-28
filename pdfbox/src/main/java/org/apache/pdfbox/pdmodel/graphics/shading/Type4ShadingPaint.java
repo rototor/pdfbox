@@ -32,7 +32,7 @@ import org.apache.pdfbox.util.Matrix;
 /**
  * AWT PaintContext for Gouraud Triangle Mesh (Type 4) shading.
  */
-class Type4ShadingPaint implements Paint
+class Type4ShadingPaint implements Paint, PDShadingPaint
 {
     private static final Log LOG = LogFactory.getLog(Type4ShadingPaint.class);
 
@@ -70,5 +70,17 @@ class Type4ShadingPaint implements Paint
             LOG.error("An error occurred while painting", e);
             return new Color(0, 0, 0, 0).createContext(cm, deviceBounds, userBounds, xform, hints);
         }
+    }
+
+    @Override
+    public PDShadingType4 getShading()
+    {
+        return shading;
+    }
+
+    @Override
+    public Matrix getMatrix()
+    {
+        return matrix;
     }
 }

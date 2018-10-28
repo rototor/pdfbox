@@ -34,7 +34,7 @@ import org.apache.pdfbox.util.Matrix;
  * AWT Paint for radial shading.
  *
  */
-public class RadialShadingPaint implements Paint
+public class RadialShadingPaint implements Paint, PDShadingPaint
 {
     private static final Log LOG = LogFactory.getLog(RadialShadingPaint.class);
 
@@ -72,5 +72,17 @@ public class RadialShadingPaint implements Paint
             LOG.error("An error occurred while painting", e);
             return new Color(0, 0, 0, 0).createContext(cm, deviceBounds, userBounds, xform, hints);
         }
+    }
+
+    @Override
+    public PDShadingType3 getShading()
+    {
+        return shading;
+    }
+
+    @Override
+    public Matrix getMatrix()
+    {
+        return matrix;
     }
 }

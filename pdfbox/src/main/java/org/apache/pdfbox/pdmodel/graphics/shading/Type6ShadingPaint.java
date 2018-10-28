@@ -34,7 +34,7 @@ import org.apache.pdfbox.util.Matrix;
  *
  * @author Shaola Ren
  */
-class Type6ShadingPaint implements Paint
+class Type6ShadingPaint implements Paint, PDShadingPaint
 {
     private static final Log LOG = LogFactory.getLog(Type6ShadingPaint.class);
 
@@ -72,5 +72,17 @@ class Type6ShadingPaint implements Paint
             LOG.error("An error occurred while painting", e);
             return new Color(0, 0, 0, 0).createContext(cm, deviceBounds, userBounds, xform, hints);
         }
+    }
+
+    @Override
+    public PDShadingType6 getShading()
+    {
+        return shading;
+    }
+
+    @Override
+    public Matrix getMatrix()
+    {
+        return matrix;
     }
 }
