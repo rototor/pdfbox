@@ -34,12 +34,9 @@ import org.apache.pdfbox.util.Matrix;
  *
  * @author Shaola Ren
  */
-class Type6ShadingPaint implements Paint
+class Type6ShadingPaint extends ShadingPaint<PDShadingType6>
 {
     private static final Log LOG = LogFactory.getLog(Type6ShadingPaint.class);
-
-    private final PDShadingType6 shading;
-    private final Matrix matrix;
 
     /**
      * Constructor.
@@ -49,8 +46,7 @@ class Type6ShadingPaint implements Paint
      */
     Type6ShadingPaint(PDShadingType6 shading, Matrix matrix)
     {
-        this.shading = shading;
-        this.matrix = matrix;
+        super(shading, matrix);
     }
 
     @Override
