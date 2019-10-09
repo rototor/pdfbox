@@ -167,6 +167,7 @@ public class PDCalRGB extends PDCIEDictionaryBasedColorSpace
     /**
      * Sets the linear interpretation matrix.
      * Passing in null will clear the matrix.
+     *
      * @param matrix the new linear interpretation matrix, or null
      */
     public final void setMatrix(Matrix matrix)
@@ -174,8 +175,21 @@ public class PDCalRGB extends PDCIEDictionaryBasedColorSpace
         COSArray matrixArray = null;
         if(matrix != null)
         {
-            matrixArray = matrix.toCOSArray();
+            // We can't use matrix.toCOSArray(), as it only
+            // returns a subset of the matrix
+            float[][] values = matrix.getValues();
+            matrixArray = new COSArray();
+            matrixArray.add(new COSFloat(values[0][0]));
+            matrixArray.add(new COSFloat(values[0][1]));
+            matrixArray.add(new COSFloat(values[0][2]));
+            matrixArray.add(new COSFloat(values[1][0]));
+            matrixArray.add(new COSFloat(values[1][1]));
+            matrixArray.add(new COSFloat(values[1][2]));
+            matrixArray.add(new COSFloat(values[2][0]));
+            matrixArray.add(new COSFloat(values[2][1]));
+            matrixArray.add(new COSFloat(values[2][2]));
         }
         dictionary.setItem(COSName.MATRIX, matrixArray);
     }
+
 }
