@@ -312,7 +312,8 @@ public abstract class PDColorSpace implements COSObjectable
     public abstract BufferedImage toRawImage(WritableRaster raster) throws IOException;
 
     /**
-     * Returns the given raster as BufferedImage with the given awtColorSpace.
+     * Returns the given raster as BufferedImage with the given awtColorSpace using a
+     * ComponentColorModel.
      * @param raster the source raster
      * @param awtColorSpace the AWT colorspace
      * @return a BufferedImage in this colorspace

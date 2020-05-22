@@ -420,52 +420,14 @@ public class PDDeviceN extends PDSpecialColorSpace
     @Override 
     public BufferedImage toRawImage(WritableRaster raster)
     {
-        return toRawImage(raster, new DummyDeviceNColorSpace(getNumberOfComponents()));
+        // We don't know how to convert that.
+        return null;
     }
 
     private static int getRawColorSpaceType(int numcomponents){
         if(numcomponents == 1 )
             return ColorSpace.TYPE_GRAY;
         return ColorSpace.TYPE_2CLR + numcomponents - 2;
-    }
-
-    /**
-     *  Dummy colorspace for DeviceN. Only conversion to RGB is possible
-     */
-    private class DummyDeviceNColorSpace extends ColorSpace {
-        private DummyDeviceNColorSpace(int numcomponents)
-        {
-            super(getRawColorSpaceType(numcomponents),numcomponents);
-        }
-
-		@Override
-		public float[] toRGB(float[] colorvalue)
-        {
-			try {
-				return PDDeviceN.this.toRGB(colorvalue);
-			}
-			catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-		}
-
-		@Override
-		public float[] fromRGB(float[] rgbvalue)
-        {
-            throw new IllegalStateException();
-		}
-
-		@Override
-		public float[] toCIEXYZ(float[] colorvalue)
-        {
-			throw new IllegalStateException();
-		}
-
-		@Override
-		public float[] fromCIEXYZ(float[] colorvalue)
-        {
-			throw new IllegalStateException();
-		}
     }
 
     /**

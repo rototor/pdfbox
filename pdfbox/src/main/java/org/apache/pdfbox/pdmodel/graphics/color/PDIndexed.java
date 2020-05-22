@@ -211,8 +211,25 @@ public final class PDIndexed extends PDSpecialColorSpace
     @Override
     public BufferedImage toRawImage(WritableRaster raster)
     {
-         // We must convert the index raster into a matching raster
+        // We can only convert sRGB index colorspaces, depending on the base colorspace
+		if (baseColorSpace instanceof PDICCBased) 
+		{
+			if (((PDICCBased) baseColorSpace).isSRGB()) {
+			    byte[] r = new byte[colorTable.length];
+                byte[] g = new byte[colorTable.length];
+                byte[] b = new byte[colorTable.length];
+				for (int i = 0; i < colorTable.length; i++) 
+				{
+					r[i] = (byte) ((int) (colorTable[i][0] * 255) & 0xFF);
+					g[i] = (byte) ((int) (colorTable[i][1] * 255) & 0xFF);
+					b[i] = (byte) ((int) (colorTable[i][2] * 255) & 0xFF);
+				}
+				ColorModel colorModel = new IndexColorModel(8, colorTable.length, r, g, b);
+				return new BufferedImage(colorModel, raster, false, null);
+			}
+		}
 
+		// We can't handle all other cases at the moment.
         return null;
     }
 

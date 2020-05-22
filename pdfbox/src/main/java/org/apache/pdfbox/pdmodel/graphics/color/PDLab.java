@@ -111,7 +111,8 @@ public final class PDLab extends PDCIEDictionaryBasedColorSpace
     @Override
     public BufferedImage toRawImage(WritableRaster raster)
     {
-        return toRawImage(raster, ColorSpace.getInstance(ColorSpace.CS_sRGB));
+        // Not handled at the moment.
+       return null;
     }
 
     @Override

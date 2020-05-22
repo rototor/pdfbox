@@ -603,6 +603,11 @@ public final class PDICCBased extends PDCIEBasedColorSpace
     {
         stream.getCOSObject().setItem(COSName.METADATA, metadata);
     }
+    
+	boolean isSRGB()
+    {
+        return isRGB;
+    }
 
     @Override
     public String toString()
