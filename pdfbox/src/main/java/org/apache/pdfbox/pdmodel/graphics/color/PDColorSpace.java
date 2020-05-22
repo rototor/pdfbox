@@ -298,11 +298,16 @@ public abstract class PDColorSpace implements COSObjectable
     public abstract BufferedImage toRGBImage(WritableRaster raster) throws IOException;
 
     /**
-     * Returns the image in this colorspace. No conversion is performed. For special colorspaces like
-     * PDSeperation the ímage is returned in the gray colorspace.
+     * Returns the image in this colorspace or null. No conversion is performed.
+     *
+     * For special colorspaces like PDSeperation the ímage is returned in the gray colorspace.
+     * For undefined colorspaces like DeviceCMYK/DeviceRGB and DeviceGray null is returned.
+     *
+     * You can always fallback to {@link #toRGBImage(WritableRaster)} if this returns null.
      *
      * @param raster the source raster
-     * @return an buffered image in this colorspace.
+     * @return an buffered image in this colorspace. Or null if it is not possible to extract
+     * that image with the original colorspace without conversion.
      */
     public abstract BufferedImage toRawImage(WritableRaster raster) throws IOException;
 
