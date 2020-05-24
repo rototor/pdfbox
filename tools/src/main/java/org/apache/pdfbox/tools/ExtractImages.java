@@ -407,19 +407,29 @@ public final class ExtractImages
         FileOutputStream out = null;
         try
         {
-            out = new FileOutputStream(prefix + "." + suffix);
 			if (noColorConvert)
 			{
-			    // We write the raw image if in any way possible
+                // We write the raw image if in any way possible.
+                // But we have no alpha information here.
                 BufferedImage image = pdImage.getRawImage();
                 if (image != null)
                 {
+                    int elements = image.getRaster().getNumDataElements();
+                    suffix = "png";
+					if (elements > 3)
+					{
+					    // More then 3 channels: Thats likely CMYK. We use tiff here,
+                        // but a TIFF codec must be in the class path for this to work.
+                        suffix = "tiff";
+                    }
+                    out = new FileOutputStream(prefix + "." + suffix);
                     ImageIOUtil.writeImage(image, suffix, out);
                     out.flush();
                     return;
                 }
             }
 
+            out = new FileOutputStream(prefix + "." + suffix);
             if ("jpg".equals(suffix))
             {
                 String colorSpaceName = pdImage.getColorSpace().getName();
