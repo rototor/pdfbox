@@ -19,6 +19,7 @@ package org.apache.pdfbox.pdmodel.graphics.image;
 import java.awt.Paint;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.awt.image.WritableRaster;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -41,6 +42,40 @@ public interface PDImage extends COSObjectable
      * @throws IOException
      */
     BufferedImage getImage() throws IOException;
+
+    /**
+     * Try to get the raw image as AWT buffered image with it's original colorspace. No
+     * color conversion is performed.
+     *
+     * You could use the returned BufferedImage for draw operations. But this would be very
+     * slow as the color conversion would happen on demand. You rather should use
+     * {@link #getImage()} for that.
+     *
+     * This method returns null if it is not possible to map the underlying colorspace into a
+     * java.awt.ColorSpace.
+     *
+     * Use this method if you want to extract the image without loosing any color information, as
+     * no color conversion will be performed.
+     *
+     * You can alwoys use {@link #getRawRaster()}, if you want to access the raw data even if
+     * no matching java.awt.ColorSpace exists
+     *
+     * @return the raw image with a java.awt.ColorSpace or null
+     * @throws IOException
+     */
+    BufferedImage getRawImage() throws IOException;
+
+    /**
+     * Return the image data as WriteableRaster. You should consult the PDColorSpace returned
+     * by {@link #getColorSpace()} to know how to interpret the data in this WritableRaster.
+     *
+     * Use this if e.g. want access to the raw color information of a
+     * {@link org.apache.pdfbox.pdmodel.graphics.color.PDDeviceN} image.
+     *
+     * @return the raw writeable raster for this image
+     * @throws IOException
+     */
+    WritableRaster getRawRaster() throws IOException;
 
     /**
      * Returns the content of this image as an AWT buffered image with an (A)RGB colored space. Only

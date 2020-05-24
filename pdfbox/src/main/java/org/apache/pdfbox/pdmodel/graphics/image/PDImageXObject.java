@@ -506,6 +506,18 @@ public final class PDImageXObject extends PDXObject implements PDImage
         return image;
     }
 
+    @Override
+    public BufferedImage getRawImage() throws IOException
+    {
+        return getColorSpace().toRawImage(getRawRaster());
+    }
+
+    @Override
+    public WritableRaster getRawRaster() throws IOException
+    {
+        return SampledImageReader.getRawRaster(this);
+    }
+
     /**
      * Extract the matte color from a softmask.
      * 
