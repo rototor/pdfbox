@@ -21,7 +21,6 @@ language: java
 
 # https://docs.travis-ci.com/user/reference/xenial/#jvm-clojure-groovy-java-scala-support
 jdk:
-  - oraclejdk12
   - openjdk8
   - openjdk11
 

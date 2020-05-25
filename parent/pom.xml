@@ -325,7 +325,6 @@
             <plugins>
                 <plugin>
                     <artifactId>maven-enforcer-plugin</artifactId>
-                    <version>3.0.0-M3</version>
                     <executions>
                         <execution>
                             <goals>
