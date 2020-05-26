@@ -324,7 +324,7 @@ public final class ImageIOUtil
                 }
             }
 
-            if(metadata != null && hasICCProfile(image) && formatName.equalsIgnoreCase("png"))
+            if(metadata != null && formatName.equalsIgnoreCase("png") && hasICCProfile(image))
             {
                 // add ICC profile
                 IIOMetadataNode iccp = new IIOMetadataNode("iCCP");
