@@ -196,12 +196,12 @@ public class PNGConverterTest
             assertEquals(rawImage.getHeight(), pdImageXObject.getHeight());
             // Workaround for JDK PNG read bug. The images are not using
             // the embedded profile...
-            if( rawImage.getColorModel().getColorSpace() instanceof ICC_ColorSpace
-               && !rawImage.getColorModel().getColorSpace().isCS_sRGB()
-               && expectedImage.getColorModel().getColorSpace().isCS_sRGB())
+            if (rawImage.getColorModel().getColorSpace() instanceof ICC_ColorSpace
+                    && !rawImage.getColorModel().getColorSpace().isCS_sRGB()
+                    && expectedImage.getColorModel().getColorSpace().isCS_sRGB())
             {
-				expectedImage = getImageWithProfileData(expectedImage,
-						((ICC_ColorSpace) rawImage.getColorModel().getColorSpace()).getProfile());
+                expectedImage = getImageWithProfileData(expectedImage,
+                        ((ICC_ColorSpace) rawImage.getColorModel().getColorSpace()).getProfile());
             }
             // We compare the raw data
             checkIdentRaw(expectedImage, pdImageXObject);
