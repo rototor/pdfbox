@@ -203,10 +203,16 @@ public class PNGConverterTest
 				expectedImage = getImageWithProfileData(expectedImage,
 						((ICC_ColorSpace) rawImage.getColorModel().getColorSpace()).getProfile());
             }
+            // We compare the raw data
             checkIdentRaw(expectedImage, pdImageXObject);
+            // We can not use checkIdent() here, because when the original image has 16 bit
+            // channel data and some ICC_ColorSpace, and we try to convert that to sRGB for
+            // conversion there are always some small rounding differences between the different
+            // color conversion paths.
         }
         else
         {
+            // We can only compare the RGB data
             checkIdent(expectedImage, image);
         }
 
