@@ -367,12 +367,12 @@ public final class ImageIOUtil
     {
         ColorSpace colorSpace = image.getColorModel().getColorSpace();
         // We can only export ICC color spaces
-		if (!(colorSpace instanceof ICC_ColorSpace))
-		{
+        if (!(colorSpace instanceof ICC_ColorSpace))
+        {
             return false;
         }
 
-		// The colorspace should not be sRGB and not be the builtin gray colorspace
+        // The colorspace should not be sRGB and not be the builtin gray colorspace
         return !colorSpace.isCS_sRGB() && colorSpace != ColorSpace.getInstance(ColorSpace.CS_GRAY);
     }
 
