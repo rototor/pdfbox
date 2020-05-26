@@ -390,16 +390,15 @@ public class LosslessFactoryTest extends TestCase
         int h = expectedRaster.getHeight();
         assertEquals(w, actualRaster.getWidth());
         assertEquals(h, actualRaster.getHeight());
-		assertEquals(expectedRaster.getDataBuffer().getDataType(), actualRaster.getDataBuffer().getDataType());
+        assertEquals(expectedRaster.getDataBuffer().getDataType(), actualRaster.getDataBuffer().getDataType());
         int numDataElements = expectedRaster.getNumDataElements();
         int numDataElementsToCompare;
-		if (expectedImage.getAlphaRaster() != null)
+        if (expectedImage.getAlphaRaster() != null)
         {
             // We do not compare the alpha channel, as this is stored extra
-			numDataElementsToCompare = numDataElements - 1;
+            numDataElementsToCompare = numDataElements - 1;
             assertEquals(numDataElementsToCompare, actualRaster.getNumDataElements());
-        }
-		else
+        } else
         {
             numDataElementsToCompare = numDataElements;
             assertEquals(numDataElements, actualRaster.getNumDataElements());
@@ -410,16 +409,17 @@ public class LosslessFactoryTest extends TestCase
         {
             for (int x = 0; x < w; ++x)
             {
-				expectedRaster.getPixel(x, y, expectedData);
-				actualRaster.getPixel(x, y, actualData);
-				for (int i = 0; i < numDataElementsToCompare; i++)
-				{
+                expectedRaster.getPixel(x, y, expectedData);
+                actualRaster.getPixel(x, y, actualData);
+                for (int i = 0; i < numDataElementsToCompare; i++)
+                {
                     int expectedValue = expectedData[i];
                     int actualValue = actualData[i];
-					if (expectedValue != actualValue)
-					{
-                        String errMsg = String.format("(%d,%d) Channel %d %04X != %04X", x, y, i, expectedValue, actualValue);
-						assertEquals(errMsg, expectedValue, actualValue);
+                    if (expectedValue != actualValue)
+                    {
+                        String errMsg = String.format("(%d,%d) Channel %d %04X != %04X", x, y, i, expectedValue,
+                                actualValue);
+                        assertEquals(errMsg, expectedValue, actualValue);
                     }
                 }
             }

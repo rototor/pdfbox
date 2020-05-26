@@ -422,12 +422,6 @@ public class PDDeviceN extends PDSpecialColorSpace
         return null;
     }
 
-    private static int getRawColorSpaceType(int numcomponents){
-        if(numcomponents == 1 )
-            return ColorSpace.TYPE_GRAY;
-        return ColorSpace.TYPE_2CLR + numcomponents - 2;
-    }
-
     /**
      * Returns true if this color space has the NChannel subtype.
      * @return true if subtype is NChannel
