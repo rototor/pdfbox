@@ -17,13 +17,20 @@
 package org.apache.pdfbox.pdmodel.graphics.image;
 
 import java.awt.Color;
+import java.awt.color.ColorSpace;
+import java.awt.color.ICC_ColorSpace;
+import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.ComponentColorModel;
+import java.awt.image.WritableRaster;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Hashtable;
 import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.cos.COSName;
@@ -32,6 +39,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 
+import static org.apache.pdfbox.pdmodel.graphics.image.LosslessFactoryTest.checkIdentRaw;
 import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.checkIdent;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -177,8 +185,58 @@ public class PNGConverterTest
         contentStream.close();
         doc.save(new File(parentDir, name + ".pdf"));
         BufferedImage image = pdImageXObject.getImage();
-        checkIdent(ImageIO.read(new ByteArrayInputStream(imageBytes)), image);
+
+        assertNotNull(pdImageXObject.getRawRaster());
+
+        BufferedImage expectedImage = ImageIO.read(new ByteArrayInputStream(imageBytes));
+        BufferedImage rawImage = pdImageXObject.getRawImage();
+        if (rawImage != null)
+        {
+            assertEquals(rawImage.getWidth(), pdImageXObject.getWidth());
+            assertEquals(rawImage.getHeight(), pdImageXObject.getHeight());
+            // Workaround for JDK PNG read bug. The images are not using
+            // the embedded profile...
+            if( rawImage.getColorModel().getColorSpace() instanceof ICC_ColorSpace
+               && !rawImage.getColorModel().getColorSpace().isCS_sRGB()
+               && expectedImage.getColorModel().getColorSpace().isCS_sRGB())
+            {
+				expectedImage = getImageWithProfileData(expectedImage,
+						((ICC_ColorSpace) rawImage.getColorModel().getColorSpace()).getProfile());
+            }
+            checkIdentRaw(expectedImage, pdImageXObject);
+        }
+        else
+        {
+            checkIdent(expectedImage, image);
+        }
+
         doc.close();
+    }
+
+    static BufferedImage getImageWithProfileData(BufferedImage sourceImage, ICC_Profile realProfile) {
+        if (realProfile != null && realProfile.getColorSpaceType() != ColorSpace.TYPE_CMYK) {
+            Hashtable<String, Object> properties = new Hashtable<String,Object>();
+            String[] propertyNames = sourceImage.getPropertyNames();
+            if (propertyNames != null)
+            {
+                for(String propertyName : propertyNames)
+                {
+                    properties.put(propertyName, sourceImage.getProperty(propertyName));
+                }
+            }
+            ComponentColorModel oldColorModel = (ComponentColorModel) sourceImage.getColorModel();
+            boolean hasAlpha = oldColorModel.hasAlpha();
+            int transparency = oldColorModel.getTransparency();
+            boolean alphaPremultiplied = oldColorModel.isAlphaPremultiplied();
+            WritableRaster raster = sourceImage.getRaster();
+            int dataType = raster.getDataBuffer().getDataType();
+            int[] componentSize = oldColorModel.getComponentSize();
+            final ColorModel colorModel = new ComponentColorModel(new ICC_ColorSpace(realProfile), componentSize,
+                    hasAlpha, alphaPremultiplied, transparency, dataType);
+            return new BufferedImage(colorModel, raster, sourceImage.isAlphaPremultiplied(),
+                    properties);
+        }
+        return sourceImage;
     }
 
     @Test

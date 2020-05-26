@@ -381,7 +381,7 @@ public class LosslessFactoryTest extends TestCase
      *  @param expectedRaster
      * @param actualRaster
      */
-    private void checkIdentRaw(BufferedImage expectedImage, PDImageXObject actualImage)
+    static void checkIdentRaw(BufferedImage expectedImage, PDImageXObject actualImage)
             throws IOException
     {
         WritableRaster expectedRaster = expectedImage.getRaster();

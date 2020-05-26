@@ -252,7 +252,7 @@ final class SampledImageReader
         final int height = pdImage.getHeight();
         final int bitsPerComponent = pdImage.getBitsPerComponent();
 
-        if (width <= 0 || height <= 0 || pdImage.getWidth() <= 0 || pdImage.getHeight() <= 0)
+        if (width <= 0 || height <= 0)
         {
             throw new IOException("image width and height must be positive");
         }
