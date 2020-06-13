@@ -17,19 +17,14 @@
 package org.apache.pdfbox.pdmodel.graphics.image;
 
 import java.awt.Color;
-import java.awt.color.ICC_ColorSpace;
 import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorModel;
-import java.awt.image.ComponentColorModel;
-import java.awt.image.WritableRaster;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Hashtable;
 import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.cos.COSName;
