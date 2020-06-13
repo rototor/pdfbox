@@ -170,8 +170,12 @@ public class ValidateXImage
      */
     public static void checkIdent(BufferedImage expectedImage, BufferedImage actualImage)
     {
-        expectedImage = convertToSRGB(expectedImage);
-        actualImage = convertToSRGB(actualImage);
+        // Convert to sRGB - but not for grayscale.
+        if (actualImage.getColorModel().getNumColorComponents() != 1)
+        {
+            expectedImage = convertToSRGB(expectedImage);
+            actualImage = convertToSRGB(actualImage);
+        }
 
         String errMsg = "";
 
