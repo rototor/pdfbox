@@ -17,14 +17,19 @@
 package org.apache.pdfbox.pdmodel.graphics.image;
 
 import java.awt.Color;
+import java.awt.color.ICC_ColorSpace;
 import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.ComponentColorModel;
+import java.awt.image.WritableRaster;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Hashtable;
 import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.cos.COSName;
@@ -38,7 +43,9 @@ import static org.apache.pdfbox.pdmodel.graphics.image.ValidateXImage.checkIdent
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -184,6 +191,7 @@ public class PNGConverterTest
         doc.save(new File(parentDir, name + ".pdf"));
         BufferedImage image = pdImageXObject.getImage();
         checkIdent(ImageIO.read(new ByteArrayInputStream(imageBytes)), image);
+        assertNotNull(pdImageXObject.getRawRaster());
         doc.close();
     }
 
