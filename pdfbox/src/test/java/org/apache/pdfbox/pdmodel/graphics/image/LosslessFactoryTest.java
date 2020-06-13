@@ -33,13 +33,10 @@ import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.File;
 import java.io.IOException;
-import java.rmi.server.ExportException;
 import java.util.Hashtable;
 import java.util.Random;
 import javax.imageio.ImageIO;
 import junit.framework.TestCase;
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertNotNull;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -378,8 +375,8 @@ public class LosslessFactoryTest extends TestCase
 
     /**
      * Check whether the raw data of images are identical.
-     *  @param expectedRaster
-     * @param actualRaster
+     *  @param expectedImage
+     * @param actualImage
      */
     static void checkIdentRaw(BufferedImage expectedImage, PDImageXObject actualImage)
             throws IOException
