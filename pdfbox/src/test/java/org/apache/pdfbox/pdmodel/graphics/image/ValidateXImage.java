@@ -52,8 +52,7 @@ import static junit.framework.TestCase.assertTrue;
  */
 public class ValidateXImage
 {
-    public static void validate(PDImageXObject ximage, int bpc, int width, int height,
-            String format, String colorSpaceName) throws IOException
+    public static void validate(PDImageXObject ximage, int bpc, int width, int height, String format, String colorSpaceName) throws IOException
     {
         // check the dictionary
         assertNotNull(ximage);
@@ -77,7 +76,8 @@ public class ValidateXImage
         boolean writeOk;
         // jdk11+ no longer encodes ARGB jpg
         // https://bugs.openjdk.java.net/browse/JDK-8211748
-        if ("jpg".equals(format) && ximage.getImage().getType() == BufferedImage.TYPE_INT_ARGB)
+        if ("jpg".equals(format) &&
+            ximage.getImage().getType() == BufferedImage.TYPE_INT_ARGB)
         {
             ImageWriter writer = ImageIO.getImageWritersBySuffix(format).next();
             ImageWriterSpi originatingProvider = writer.getOriginatingProvider();
@@ -116,8 +116,8 @@ public class ValidateXImage
     }
 
     // write image twice (overlapped) in document, close document and re-read PDF
-    static void doWritePDF(PDDocument document, PDImageXObject ximage, File testResultsDir,
-            String filename) throws IOException
+    static void doWritePDF(PDDocument document, PDImageXObject ximage, File testResultsDir, String filename)
+            throws IOException
     {
         File pdfFile = new File(testResultsDir, filename);
 
@@ -127,8 +127,7 @@ public class ValidateXImage
 
         PDPage page = new PDPage();
         document.addPage(page);
-        PDPageContentStream contentStream = new PDPageContentStream(document, page,
-                AppendMode.APPEND, false);
+        PDPageContentStream contentStream = new PDPageContentStream(document, page, AppendMode.APPEND, false);
         contentStream.drawImage(ximage, 150, 300);
         contentStream.drawImage(ximage, 200, 350);
         contentStream.close();
@@ -178,8 +177,7 @@ public class ValidateXImage
             {
                 if (expectedImage.getRGB(x, y) != actualImage.getRGB(x, y))
                 {
-                    errMsg = String.format("(%d,%d) expected: <%08X> but was: <%08X>; ", x, y,
-                            expectedImage.getRGB(x, y), actualImage.getRGB(x, y));
+                    errMsg = String.format("(%d,%d) expected: <%08X> but was: <%08X>; ", x, y, expectedImage.getRGB(x, y), actualImage.getRGB(x, y));
                 }
                 assertEquals(errMsg, expectedImage.getRGB(x, y), actualImage.getRGB(x, y));
             }
