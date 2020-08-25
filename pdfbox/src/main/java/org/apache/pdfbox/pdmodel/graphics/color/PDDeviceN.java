@@ -19,7 +19,6 @@ package org.apache.pdfbox.pdmodel.graphics.color;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
@@ -415,7 +414,7 @@ public class PDDeviceN extends PDSpecialColorSpace
         return alternateColorSpace.toRGB(altValue);
     }
 
-    @Override 
+    @Override
     public BufferedImage toRawImage(WritableRaster raster)
     {
         // We don't know how to convert that.
