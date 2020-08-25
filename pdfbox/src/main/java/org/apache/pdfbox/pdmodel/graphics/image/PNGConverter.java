@@ -411,7 +411,6 @@ final class PNGConverter
             cosStream.setItem(COSName.FILTER, COSName.FLATE_DECODE);
             if (state.iCCP != null)
             {
-                cosStream.setItem(COSName.FILTER, COSName.FLATE_DECODE);
                 // We need to skip over the name
                 int iccProfileDataStart = 0;
                 while (iccProfileDataStart < 80 && iccProfileDataStart < state.iCCP.length)
