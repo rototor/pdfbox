@@ -38,7 +38,6 @@ import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.graphics.shading.AxialShadingContext;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.pdmodel.PDPageContentStream.AppendMode;
 
@@ -189,8 +188,7 @@ public class ValidateXImage
             {
                 if (expectedImage.getRGB(x, y) != actualImage.getRGB(x, y))
                 {
-                    errMsg = String.format("(%d,%d) expected: <%08X> but was: <%08X>; ", x, y,
-                            expectedImage.getRGB(x, y), actualImage.getRGB(x, y));
+                    errMsg = String.format("(%d,%d) expected: <%08X> but was: <%08X>; ", x, y, expectedImage.getRGB(x, y), actualImage.getRGB(x, y));
                 }
                 assertEquals(errMsg, expectedImage.getRGB(x, y), actualImage.getRGB(x, y));
             }
