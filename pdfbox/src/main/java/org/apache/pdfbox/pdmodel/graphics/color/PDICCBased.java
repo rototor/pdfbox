@@ -604,7 +604,11 @@ public final class PDICCBased extends PDCIEBasedColorSpace
     {
         stream.getCOSObject().setItem(COSName.METADATA, metadata);
     }
-    
+
+    /**
+     * Internal accessor to support indexed raw images.
+     * @return true if this colorspace is sRGB.
+     */
     boolean isSRGB()
     {
         return isRGB;

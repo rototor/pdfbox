@@ -137,8 +137,7 @@ public class ValidateXImage
 
         PDPage page = new PDPage();
         document.addPage(page);
-        PDPageContentStream contentStream = new PDPageContentStream(document, page,
-                AppendMode.APPEND, false);
+        PDPageContentStream contentStream = new PDPageContentStream(document, page, AppendMode.APPEND, false);
         contentStream.drawImage(ximage, 150, 300);
         contentStream.drawImage(ximage, 200, 350);
         contentStream.close();
@@ -149,7 +148,7 @@ public class ValidateXImage
         document.save(pdfFile);
         document.close();
 
-        document = PDDocument.load(pdfFile, (String) null);
+        document = PDDocument.load(pdfFile, (String)null);
         assertEquals(1, count(document.getPage(0).getResources().getXObjectNames()));
         new PDFRenderer(document).renderImage(0);
         document.close();
@@ -173,10 +172,10 @@ public class ValidateXImage
      */
     public static void checkIdent(BufferedImage expectedImage, BufferedImage actualImage)
     {
+        String errMsg = "";
+
         expectedImage = convertToSRGB(expectedImage);
         actualImage = convertToSRGB(actualImage);
-
-        String errMsg = "";
 
         int w = expectedImage.getWidth();
         int h = expectedImage.getHeight();
