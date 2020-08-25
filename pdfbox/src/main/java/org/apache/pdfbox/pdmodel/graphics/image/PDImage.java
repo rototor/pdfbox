@@ -44,6 +44,18 @@ public interface PDImage extends COSObjectable
     BufferedImage getImage() throws IOException;
 
     /**
+     * Return the image data as WriteableRaster. You should consult the PDColorSpace returned
+     * by {@link #getColorSpace()} to know how to interpret the data in this WritableRaster.
+     *
+     * Use this if e.g. want access to the raw color information of a
+     * {@link org.apache.pdfbox.pdmodel.graphics.color.PDDeviceN} image.
+     *
+     * @return the raw writeable raster for this image
+     * @throws IOException
+     */
+    WritableRaster getRawRaster() throws IOException;
+
+    /**
      * Try to get the raw image as AWT buffered image with it's original colorspace. No
      * color conversion is performed.
      *
@@ -64,18 +76,6 @@ public interface PDImage extends COSObjectable
      * @throws IOException
      */
     BufferedImage getRawImage() throws IOException;
-
-    /**
-     * Return the image data as WriteableRaster. You should consult the PDColorSpace returned
-     * by {@link #getColorSpace()} to know how to interpret the data in this WritableRaster.
-     *
-     * Use this if e.g. want access to the raw color information of a
-     * {@link org.apache.pdfbox.pdmodel.graphics.color.PDDeviceN} image.
-     *
-     * @return the raw writeable raster for this image
-     * @throws IOException
-     */
-    WritableRaster getRawRaster() throws IOException;
 
     /**
      * Returns the content of this image as an AWT buffered image with an (A)RGB colored space. Only

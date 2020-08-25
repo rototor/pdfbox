@@ -356,16 +356,17 @@ public final class PDInlineImage implements PDImage
         return SampledImageReader.getRGBImage(this, region, subsampling, null);
     }
 
-    @Override
-    public BufferedImage getRawImage() throws IOException
-    {
-        return getColorSpace().toRawImage(getRawRaster());
-    }
 
     @Override
     public WritableRaster getRawRaster() throws IOException
     {
         return SampledImageReader.getRawRaster(this);
+    }
+
+    @Override
+    public BufferedImage getRawImage() throws IOException
+    {
+        return getColorSpace().toRawImage(getRawRaster());
     }
 
     @Override

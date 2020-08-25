@@ -15,9 +15,14 @@
  */
 package org.apache.pdfbox.pdmodel.graphics.image;
 
-import java.awt.*;
+import java.awt.Point;
 import java.awt.color.ColorSpace;
-import java.awt.image.*;
+import java.awt.image.BufferedImage;
+import java.awt.image.ColorConvertOp;
+import java.awt.image.DataBuffer;
+import java.awt.image.DirectColorModel;
+import java.awt.image.Raster;
+import java.awt.image.WritableRaster;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,7 +32,7 @@ import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageWriter;
 import javax.imageio.spi.ImageWriterSpi;
-
+import static junit.framework.TestCase.assertEquals;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -37,7 +42,6 @@ import org.apache.pdfbox.pdmodel.graphics.shading.AxialShadingContext;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.pdmodel.PDPageContentStream.AppendMode;
 
-import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
 
