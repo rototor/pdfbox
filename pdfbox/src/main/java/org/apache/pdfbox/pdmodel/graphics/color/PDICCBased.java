@@ -299,7 +299,8 @@ public final class PDICCBased extends PDCIEBasedColorSpace
     }
 
     /**
-     * Returns true if the given profile is represents sRGB.
+     * Returns true if the given profile represents sRGB.
+     * (unreliable on the data of ColorSpace.CS_sRGB in openjdk)
      */
     private boolean is_sRGB(ICC_Profile profile)
     {

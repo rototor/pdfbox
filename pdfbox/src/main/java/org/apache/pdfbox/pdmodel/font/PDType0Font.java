@@ -78,7 +78,7 @@ public class PDType0Font extends PDFont implements PDVectorFont
      */
     public static PDType0Font load(PDDocument doc, InputStream input) throws IOException
     {
-        return new PDType0Font(doc, new TTFParser().parse(input), true, true, false);
+        return load(doc, input, true);
     }
 
     /**
@@ -346,9 +346,16 @@ public class PDType0Font extends PDFont implements PDVectorFont
             // try to find the corresponding Unicode (UC2) CMap
             if (strName != null)
             {
-                CMap prdCMap = CMapManager.getPredefinedCMap(strName);
-                String ucs2Name = prdCMap.getRegistry() + "-" + prdCMap.getOrdering() + "-UCS2";
-                cMapUCS2 = CMapManager.getPredefinedCMap(ucs2Name);
+                try
+                {
+                    CMap prdCMap = CMapManager.getPredefinedCMap(strName);
+                    String ucs2Name = prdCMap.getRegistry() + "-" + prdCMap.getOrdering() + "-UCS2";
+                    cMapUCS2 = CMapManager.getPredefinedCMap(ucs2Name);
+                }
+                catch (IOException ex)
+                {
+                    LOG.warn("Could not get " + strName + " UC2 map for font " + getName(), ex);
+                }
             }
         }
     }

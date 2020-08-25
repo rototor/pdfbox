@@ -76,16 +76,13 @@ public class PDSignatureField extends PDTerminalField
     private String generatePartialName()
     {
         String fieldName = "Signature";
-        Set<String> sigNames = new HashSet<String>();
+        Set<String> nameSet = new HashSet<String>();
         for (PDField field : getAcroForm().getFieldTree())
         {
-            if(field instanceof PDSignatureField)
-            {
-                sigNames.add(field.getPartialName());
-            }
+            nameSet.add(field.getPartialName());
         }
         int i = 1;
-        while(sigNames.contains(fieldName+i))
+        while (nameSet.contains(fieldName + i))
         {
             ++i;
         }
@@ -236,8 +233,11 @@ public class PDSignatureField extends PDTerminalField
                 return;
             }
 
-            // TODO: implement appearance generation for signatures
-            LOG.warn("Appearance generation for signature fields not yet implemented - you need to generate/update that manually");
+            // TODO: implement appearance generation for signatures (PDFBOX-3524)
+            LOG.warn("Appearance generation for signature fields not implemented here. "
+                    + "You need to generate/update that manually, see the "
+                    + "CreateVisibleSignature*.java files in the examples subproject "
+                    + "of the source code download");
         }
     }
 }

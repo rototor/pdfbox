@@ -36,6 +36,7 @@ import org.apache.pdfbox.examples.signature.cert.CertificateVerifier;
 import org.apache.pdfbox.io.IOUtils;
 import org.apache.pdfbox.pdmodel.encryption.SecurityProvider;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1Object;
 import org.bouncycastle.asn1.cms.Attribute;
 import org.bouncycastle.asn1.cms.AttributeTable;
@@ -140,10 +141,18 @@ public class CertInformationCollector
         {
             return;
         }
-        Attribute tsAttribute = signerInformation.getUnsignedAttributes()
+        Attribute tsAttribute = unsignedAttributes
                 .get(PKCSObjectIdentifiers.id_aa_signatureTimeStampToken);
-
-        ASN1Object tsSeq = (ASN1Object) tsAttribute.getAttrValues().getObjectAt(0);
+        if (tsAttribute == null)
+        {
+            return;
+        }
+        ASN1Encodable obj0 = tsAttribute.getAttrValues().getObjectAt(0);
+        if (!(obj0 instanceof ASN1Object))
+        {
+            return;
+        }
+        ASN1Object tsSeq = (ASN1Object) obj0;
 
         try
         {
@@ -240,28 +249,27 @@ public class CertInformationCollector
 
         for (X509Certificate issuer : certificateSet)
         {
-            if (certificate.getIssuerX500Principal().equals(issuer.getSubjectX500Principal()))
+            try
             {
-                try
-                {
-                    certificate.verify(issuer.getPublicKey(), SecurityProvider.getProvider().getName());
-                }
-                catch (GeneralSecurityException ex)
-                {
-                    throw new CertificateProccessingException(ex);
-                }
+                certificate.verify(issuer.getPublicKey(), SecurityProvider.getProvider().getName());
                 LOG.info("Found the right Issuer Cert! for Cert: " + certificate.getSubjectX500Principal()
-                        + "\n" + issuer.getSubjectX500Principal());
+                    + "\n" + issuer.getSubjectX500Principal());
                 certInfo.issuerCertificate = issuer;
                 certInfo.certChain = new CertSignatureInformation();
                 traverseChain(issuer, certInfo.certChain, maxDepth - 1);
                 break;
             }
+            catch (GeneralSecurityException ex)
+            {
+                // not the issuer
+            }                
         }
         if (certInfo.issuerCertificate == null)
         {
             throw new IOException(
-                    "No Issuer Certificate found for Cert: " + certificate.getSubjectX500Principal());
+                    "No Issuer Certificate found for Cert: '" +
+                            certificate.getSubjectX500Principal() + "', i.e. Cert '" +
+                            certificate.getIssuerX500Principal() + "' is missing in the chain");
         }
     }
 

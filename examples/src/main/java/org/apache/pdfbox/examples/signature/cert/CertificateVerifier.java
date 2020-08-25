@@ -113,12 +113,38 @@ public final class CertificateVerifier
                 throw new CertificateVerificationException("The certificate is self-signed.");
             }
 
-            Set<X509Certificate> certSet = CertificateVerifier.downloadExtraCertificates(cert);
-            int downloadSize = certSet.size();
+            Set<X509Certificate> certSet = new HashSet<X509Certificate>();
             certSet.addAll(additionalCerts);
+
+            // Download extra certificates. However, each downloaded certificate can lead to
+            // more extra certificates, e.g. with the file from PDFBOX-4091, which has
+            // an incomplete chain.
+            Set<X509Certificate> certsToTrySet = new HashSet<X509Certificate>();
+            certsToTrySet.add(cert);
+            int downloadSize = 0;
+            while (!certsToTrySet.isEmpty())
+            {
+                Set<X509Certificate> nextCertsToTrySet = new HashSet<X509Certificate>();
+                for (X509Certificate tryCert : certsToTrySet)
+                {
+                    Set<X509Certificate> downloadedExtraCertificatesSet =
+                            CertificateVerifier.downloadExtraCertificates(tryCert);
+                    for (X509Certificate downloadedCertificate : downloadedExtraCertificatesSet)
+                    {
+                        if (!certSet.contains(downloadedCertificate))
+                        {
+                            nextCertsToTrySet.add(downloadedCertificate);
+                            certSet.add(downloadedCertificate);
+                            downloadSize++;
+                        }
+                    }
+                }
+                certsToTrySet = nextCertsToTrySet;
+            }
+
             if (downloadSize > 0)
             {
-                LOG.info("CA issuers: " + (certSet.size() - additionalCerts.size()) + " downloaded certificate(s) are new");
+                LOG.info("CA issuers: " + downloadSize + " downloaded certificate(s) are new");
             }
 
             // Prepare a set of trust anchors (set of root CA certificates)
@@ -146,7 +172,8 @@ public final class CertificateVerifier
             PKIXCertPathBuilderResult verifiedCertChain = verifyCertificate(
                     cert, trustAnchors, intermediateCerts, signDate);
 
-            LOG.info("Certification chain verified successfully");
+            LOG.info("Certification chain verified successfully up to this root: " +
+                    verifiedCertChain.getTrustAnchor().getTrustedCert().getSubjectX500Principal());
 
             checkRevocations(cert, certSet, signDate);
 
@@ -184,10 +211,15 @@ public final class CertificateVerifier
         X509Certificate issuerCert = null;
         for (X509Certificate additionalCert : additionalCerts)
         {
-            if (cert.getIssuerX500Principal().equals(additionalCert.getSubjectX500Principal()))
+            try
             {
+                cert.verify(additionalCert.getPublicKey(), SecurityProvider.getProvider().getName());
                 issuerCert = additionalCert;
                 break;
+            }
+            catch (GeneralSecurityException ex)
+            {
+                // not the issuer
             }
         }
         // issuerCert is never null here. If it hadn't been found, then there wouldn't be a 
@@ -312,10 +344,10 @@ public final class CertificateVerifier
             }
             ASN1TaggedObject location = (ASN1TaggedObject) obj.getObjectAt(1);
             ASN1OctetString uri = (ASN1OctetString) location.getObject();
+            String urlString = new String(uri.getOctets());
             InputStream in = null;
             try
             {
-                String urlString = new String(uri.getOctets());
                 LOG.info("CA issuers URL: " + urlString);
                 in = new URL(urlString).openStream();
                 CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
@@ -328,7 +360,7 @@ public final class CertificateVerifier
             }
             catch (IOException ex)
             {
-                LOG.warn(ex.getMessage(), ex);
+                LOG.warn(urlString + " failure: " + ex.getMessage(), ex);
             }
             catch (CertificateException ex)
             {

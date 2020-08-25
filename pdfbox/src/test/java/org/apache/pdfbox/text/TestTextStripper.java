@@ -41,12 +41,17 @@ import java.util.List;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
+import static junit.framework.TestCase.assertFalse;
 import junit.framework.TestSuite;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.fontbox.util.BoundingBox;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.TestPDPageTree;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDFontDescriptor;
+import org.apache.pdfbox.pdmodel.font.PDType3Font;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
@@ -249,7 +254,6 @@ public class TestTextStripper extends TestCase
             }
         }
 
-        //System.out.println("  " + inFile + (bSort ? " (sorted)" : ""));
         PDDocument document = PDDocument.load(inFile);
         try
         {            
@@ -312,116 +316,117 @@ public class TestTextStripper extends TestCase
                 return;
             }
             
-            boolean localFail = false;
-
-            LineNumberReader expectedReader =
-                new LineNumberReader(new InputStreamReader(new FileInputStream(expectedFile), ENCODING));
-            LineNumberReader actualReader =
-                new LineNumberReader(new InputStreamReader(new FileInputStream(outFile), ENCODING));
-
-            while (true)
-            {
-                String expectedLine = expectedReader.readLine();
-                while( expectedLine != null && expectedLine.trim().length() == 0 )
-                {
-                    expectedLine = expectedReader.readLine();
-                }
-                String actualLine = actualReader.readLine();
-                while( actualLine != null && actualLine.trim().length() == 0 )
-                {
-                    actualLine = actualReader.readLine();
-                }
-                if (!stringsEqual(expectedLine, actualLine))
-                {
-                    this.bFail = true;
-                    localFail = true;
-                    log.error("FAILURE: Line mismatch for file " + inFile.getName() +
-                            " (sort = "+bSort+")" +
-                            " at expected line: " + expectedReader.getLineNumber() +
-                            " at actual line: " + actualReader.getLineNumber() +
-                            "\nexpected line was: \"" + expectedLine + "\"" +
-                            "\nactual line was:   \"" + actualLine + "\"" + "\n");
-
-                    //lets report all lines, even though this might produce some verbose logging
-                    //break;
-                }
-
-                if( expectedLine == null || actualLine==null)
-                {
-                    break;
-                }
-            }
-            expectedReader.close();
-            actualReader.close();
-            if (!localFail)
-            {
-                outFile.delete();
-            }
-            else
-            {
-                // https://code.google.com/p/java-diff-utils/wiki/SampleUsage
-                List<String> original = fileToLines(expectedFile);
-                List<String> revised = fileToLines(outFile);
-
-                // Compute diff. Get the Patch object. Patch is the container for computed deltas.
-                Patch patch = DiffUtils.diff(original, revised);
-
-                PrintStream diffPS = new PrintStream(diffFile, ENCODING);
-                for (Object delta : patch.getDeltas())
-                {
-                    if (delta instanceof ChangeDelta)
-                    {
-                        ChangeDelta cdelta = (ChangeDelta) delta;
-                        diffPS.println("Org: " + cdelta.getOriginal());
-                        diffPS.println("New: " + cdelta.getRevised());
-                        diffPS.println();
-                    }
-                    else if (delta instanceof DeleteDelta)
-                    {
-                        DeleteDelta ddelta = (DeleteDelta) delta;
-                        diffPS.println("Org: " + ddelta.getOriginal());
-                        diffPS.println("New: " + ddelta.getRevised());
-                        diffPS.println();
-                    }
-                    else if (delta instanceof InsertDelta)
-                    {
-                        InsertDelta idelta = (InsertDelta) delta;
-                        diffPS.println("Org: " + idelta.getOriginal());
-                        diffPS.println("New: " + idelta.getRevised());
-                        diffPS.println();
-                    }
-                    else
-                    {
-                        diffPS.println(delta);
-                    }
-                }
-                diffPS.close();
-            }
+            compareResult(expectedFile, outFile, inFile, bSort, diffFile);
         }
         finally
         {
             document.close();
         }
     }
+
+    private void compareResult(File expectedFile, File outFile, File inFile, boolean bSort, File diffFile)
+            throws IOException
+    {
+        boolean localFail = false;
+        
+        LineNumberReader expectedReader =
+                new LineNumberReader(new InputStreamReader(new FileInputStream(expectedFile), ENCODING));
+        LineNumberReader actualReader =
+                new LineNumberReader(new InputStreamReader(new FileInputStream(outFile), ENCODING));
+        
+        while (true)
+        {
+            String expectedLine = expectedReader.readLine();
+            while( expectedLine != null && expectedLine.trim().length() == 0 )
+            {
+                expectedLine = expectedReader.readLine();
+            }
+            String actualLine = actualReader.readLine();
+            while( actualLine != null && actualLine.trim().length() == 0 )
+            {
+                actualLine = actualReader.readLine();
+            }
+            if (!stringsEqual(expectedLine, actualLine))
+            {
+                this.bFail = true;
+                localFail = true;
+                log.error("FAILURE: Line mismatch for file " + inFile.getName() +
+                        " (sort = "+bSort+")" +
+                                " at expected line: " + expectedReader.getLineNumber() +
+                        " at actual line: " + actualReader.getLineNumber() +
+                        "\nexpected line was: \"" + expectedLine + "\"" +
+                                "\nactual line was:   \"" + actualLine + "\"" + "\n");
+                
+                //lets report all lines, even though this might produce some verbose logging
+                //break;
+            }
+            
+            if (expectedLine == null || actualLine == null)
+            {
+                break;
+            }
+        }
+        expectedReader.close();
+        actualReader.close();
+        if (!localFail)
+        {
+            outFile.delete();
+        }
+        else
+        {
+            // https://code.google.com/p/java-diff-utils/wiki/SampleUsage
+            List<String> original = fileToLines(expectedFile);
+            List<String> revised = fileToLines(outFile);
+            
+            // Compute diff. Get the Patch object. Patch is the container for computed deltas.
+            Patch patch = DiffUtils.diff(original, revised);
+            
+            PrintStream diffPS = new PrintStream(diffFile, ENCODING);
+            for (Object delta : patch.getDeltas())
+            {
+                if (delta instanceof ChangeDelta)
+                {
+                    ChangeDelta cdelta = (ChangeDelta) delta;
+                    diffPS.println("Org: " + cdelta.getOriginal());
+                    diffPS.println("New: " + cdelta.getRevised());
+                    diffPS.println();
+                }
+                else if (delta instanceof DeleteDelta)
+                {
+                    DeleteDelta ddelta = (DeleteDelta) delta;
+                    diffPS.println("Org: " + ddelta.getOriginal());
+                    diffPS.println("New: " + ddelta.getRevised());
+                    diffPS.println();
+                }
+                else if (delta instanceof InsertDelta)
+                {
+                    InsertDelta idelta = (InsertDelta) delta;
+                    diffPS.println("Org: " + idelta.getOriginal());
+                    diffPS.println("New: " + idelta.getRevised());
+                    diffPS.println();
+                }
+                else
+                {
+                    diffPS.println(delta);
+                }
+            }
+            diffPS.close();
+        }
+    }
     
     // Helper method for get the file content
-    private static List<String> fileToLines(File file)
+    private static List<String> fileToLines(File file) throws IOException
     {
         List<String> lines = new LinkedList<String>();
-        String line = "";
-        try
+        String line;
+
+        BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(file), ENCODING));
+        while ((line = in.readLine()) != null)
         {
-            BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(file), ENCODING));
-            while ((line = in.readLine()) != null)
-            {
-                lines.add(line);
-            }
-            in.close();
+            lines.add(line);
         }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-        }
+        in.close();
+
         return lines;
     }
 
@@ -447,6 +452,7 @@ public class TestTextStripper extends TestCase
      * must be empty.
      *
      * @throws IOException
+     * @throws URISyntaxException
      */
     public void testStripByOutlineItems() throws IOException, URISyntaxException
     {
@@ -608,6 +614,94 @@ public class TestTextStripper extends TestCase
             {
                 fail("One or more failures, see test log for details");
             }
+    }
+
+    public void testTabula() throws IOException
+    {
+        File pdfFile = new File("src/test/resources/input", "eu-001.pdf");
+        File outFile = new File("target/test-output", "eu-001.pdf-tabula.txt");
+        File expectedOutFile = new File("src/test/resources/input", "eu-001.pdf-tabula.txt");
+        File diffFile = new File("target/test-output", "eu-001.pdf-tabula-diff.txt");
+        PDDocument tabulaDocument = PDDocument.load(pdfFile);
+        PDFTextStripper tabulaStripper = new PDFTabulaTextStripper();
+
+        OutputStream os = new FileOutputStream(outFile);
+
+        os.write(0xEF);
+        os.write(0xBB);
+        os.write(0xBF);
+
+        Writer writer = new BufferedWriter(new OutputStreamWriter(os, ENCODING));
+        try
+        {
+            tabulaStripper.writeText(tabulaDocument, writer);
+        }
+        finally
+        {
+            writer.close();
+        }
+
+        os.close();
+
+        compareResult(expectedOutFile, outFile, pdfFile, false, diffFile);
+
+        assertFalse(bFail);
+    }
+
+    private class PDFTabulaTextStripper extends PDFTextStripper
+    {
+        PDFTabulaTextStripper() throws IOException
+        {
+            // empty
+        }
+
+        @Override
+        protected float computeFontHeight(PDFont font) throws IOException
+        {
+            BoundingBox bbox = font.getBoundingBox();
+            if (bbox.getLowerLeftY() < Short.MIN_VALUE)
+            {
+                // PDFBOX-2158 and PDFBOX-3130
+                // files by Salmat eSolutions / ClibPDF Library
+                bbox.setLowerLeftY(-(bbox.getLowerLeftY() + 65536));
+            }
+            // 1/2 the bbox is used as the height todo: why?
+            float glyphHeight = bbox.getHeight() / 2;
+
+            // sometimes the bbox has very high values, but CapHeight is OK
+            PDFontDescriptor fontDescriptor = font.getFontDescriptor();
+            if (fontDescriptor != null)
+            {
+                float capHeight = fontDescriptor.getCapHeight();
+                if (Float.compare(capHeight, 0) != 0
+                        && (capHeight < glyphHeight || Float.compare(glyphHeight, 0) == 0))
+                {
+                    glyphHeight = capHeight;
+                }
+                // PDFBOX-3464, PDFBOX-448:
+                // sometimes even CapHeight has very high value, but Ascent and Descent are ok
+                float ascent = fontDescriptor.getAscent();
+                float descent = fontDescriptor.getDescent();
+                if (ascent > 0 && descent < 0
+                        && ((ascent - descent) / 2 < glyphHeight || Float.compare(glyphHeight, 0) == 0))
+                {
+                    glyphHeight = (ascent - descent) / 2;
+                }
+            }
+
+            // transformPoint from glyph space -> text space
+            float height;
+            if (font instanceof PDType3Font)
+            {
+                height = font.getFontMatrix().transformPoint(0, glyphHeight).y;
+            }
+            else
+            {
+                height = glyphHeight / 1000;
+            }
+
+            return height;
+        }
     }
 
     /**
