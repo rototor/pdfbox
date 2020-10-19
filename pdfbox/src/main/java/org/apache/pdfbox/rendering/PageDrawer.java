@@ -102,6 +102,8 @@ import org.apache.pdfbox.pdmodel.interactive.annotation.AnnotationFilter;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationUnknown;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary;
+import org.apache.pdfbox.rendering.composer.PageDrawerComposer;
+import org.apache.pdfbox.rendering.composer.PageDrawerComposerBufferedImageSRGB;
 import org.apache.pdfbox.util.Matrix;
 import org.apache.pdfbox.util.Vector;
 
@@ -178,6 +180,8 @@ public class PageDrawer extends PDFGraphicsStreamEngine
         }
     };
 
+    private PageDrawerComposer composer;
+
     /**
      * Constructor.
      *
@@ -191,6 +195,7 @@ public class PageDrawer extends PDFGraphicsStreamEngine
         this.subsamplingAllowed = parameters.isSubsamplingAllowed();
         this.destination = parameters.getDestination();
         this.renderingHints = parameters.getRenderingHints();
+        this.composer = parameters.getComposer();
     }
 
     /**

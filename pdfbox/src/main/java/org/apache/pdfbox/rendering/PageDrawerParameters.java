@@ -20,6 +20,7 @@ package org.apache.pdfbox.rendering;
 import java.awt.RenderingHints;
 
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.rendering.composer.PageDrawerComposer;
 
 /**
  * Parameters for a PageDrawer. This class ensures allows PDFRenderer and PageDrawer to share
@@ -35,18 +36,20 @@ public final class PageDrawerParameters
     private final boolean subsamplingAllowed;
     private final RenderDestination destination; 
     private final RenderingHints renderingHints;
+    private PageDrawerComposer composer;
 
     /**
      * Package-private constructor.
      */
     PageDrawerParameters(PDFRenderer renderer, PDPage page, boolean subsamplingAllowed,
-                         RenderDestination destination, RenderingHints renderingHints)
+                         RenderDestination destination, RenderingHints renderingHints, PageDrawerComposer composer)
     {
         this.renderer = renderer;
         this.page = page;
         this.subsamplingAllowed = subsamplingAllowed;
         this.destination = destination;
         this.renderingHints = renderingHints;
+        this.composer = composer;
     }
 
     /**
@@ -87,5 +90,10 @@ public final class PageDrawerParameters
     public RenderingHints getRenderingHints()
     {
         return renderingHints;
+    }
+
+    public PageDrawerComposer getComposer()
+    {
+        return composer;
     }
 }

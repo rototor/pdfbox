@@ -40,6 +40,8 @@ import org.apache.pdfbox.pdmodel.graphics.optionalcontent.PDOptionalContentPrope
 import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState;
 import org.apache.pdfbox.pdmodel.interactive.annotation.AnnotationFilter;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
+import org.apache.pdfbox.rendering.composer.PageDrawerComposer;
+import org.apache.pdfbox.rendering.composer.PageDrawerComposerBufferedImageSRGB;
 
 /**
  * Renders a PDF document to an AWT BufferedImage.
@@ -73,6 +75,8 @@ public class PDFRenderer
     private RenderingHints renderingHints = null;
 
     private BufferedImage pageImage;
+
+    private PageDrawerComposer composer = new PageDrawerComposerBufferedImageSRGB();
 
     private static boolean kcmsLogged = false;
 
@@ -112,6 +116,16 @@ public class PDFRenderer
     {
         this.annotationFilter = annotationsFilter;
     }
+
+    /**
+     * Sets the Composer for composing subforms and transparency groups
+     * @param composer the composer
+     */
+    public void setComposer(PageDrawerComposer composer)
+    {
+        this.composer = composer;
+    }
+
 
     /**
      * Value indicating if the renderer is allowed to subsample images before drawing, according to
@@ -316,7 +330,7 @@ public class PDFRenderer
         RenderingHints actualRenderingHints =
                 renderingHints == null ? createDefaultRenderingHints(g) : renderingHints;
         PageDrawerParameters parameters = new PageDrawerParameters(this, page, subsamplingAllowed,
-                                                                   destination, actualRenderingHints);
+                                                                   destination, actualRenderingHints, composer);
         PageDrawer drawer = createPageDrawer(parameters);
         drawer.drawPage(g, page.getCropBox());       
         
@@ -426,7 +440,7 @@ public class PDFRenderer
         RenderingHints actualRenderingHints =
                 renderingHints == null ? createDefaultRenderingHints(graphics) : renderingHints;
         PageDrawerParameters parameters = new PageDrawerParameters(this, page, subsamplingAllowed,
-                                                                   destination, actualRenderingHints);
+                                                                   destination, actualRenderingHints, composer);
         PageDrawer drawer = createPageDrawer(parameters);
         drawer.drawPage(graphics, cropBox);
     }
